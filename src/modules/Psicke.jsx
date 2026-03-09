@@ -7,6 +7,8 @@ import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../c
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 import { OB_AREAS } from './Onboarding.jsx';
 
+const GEMINI_MODEL = 'gemini-2.5-flash';
+
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
   const t=today();

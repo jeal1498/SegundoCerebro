@@ -5,6 +5,13 @@ import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
+import Finance from './Finance.jsx';
+import Health from './Health.jsx';
+import Hogar from './Hogar.jsx';
+import DesarrolloPersonal from './DesarrolloPersonal.jsx';
+import Relaciones from './Relaciones.jsx';
+import SideProjects from './SideProjects.jsx';
+import TrabajoEmbed from './TrabajoEmbed.jsx';
 
 // ===================== AREAS =====================
 const Areas = ({data,isMobile,onNavigate}) => {
