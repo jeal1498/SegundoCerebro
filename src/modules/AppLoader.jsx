@@ -1,8 +1,6 @@
 import React from 'react';
 import { T } from '../theme/tokens.js';
 
-let isMobileGlobal=false;
-
 // ===================== LOADING SKELETON =====================
 const AppLoader = () => (
   <div style={{

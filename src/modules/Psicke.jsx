@@ -1382,7 +1382,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                     padding:'10px 14px',borderRadius:12,fontSize:14,outline:'none',fontFamily:'inherit'}}/>
                 <button onClick={()=>{setSlashMenu(false);send();}} disabled={!input.trim()||loading}
                   aria-label="Enviar mensaje"
-                  style={{width:38,height:38,borderRadius:'50%',border:'none',flexShrink:0,
+                  style={{width:38,height:38,borderRadius:'50%',flexShrink:0,
                     background:input.trim()&&!loading?T.accent:'transparent',
                     border:input.trim()&&!loading?'none':`1px solid ${T.border}`,
                     cursor:input.trim()&&!loading?'pointer':'not-allowed',
