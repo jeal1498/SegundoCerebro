@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { DARK_THEME } from '../theme/tokens.js';
-const D = DARK_THEME; // Onboarding always uses dark theme regardless of system setting
+import { T } from '../theme/tokens.js';
 
 // ===================== ONBOARDING =====================
 // ===================== PSICKE ONBOARDING =====================
@@ -101,38 +100,38 @@ const obClear = () => { try { localStorage.removeItem(OB_SAVE_KEY); } catch {} }
 const Onboarding=({onDone})=>{
   // ── Style helpers using T tokens ──
   const OB_ghost = (active) => ({
-    background: active ? `${D.accent}22` : 'transparent',
-    border: `1px solid ${active ? D.accent : D.border}`,
+    background: active ? `${T.accent}22` : 'transparent',
+    border: `1px solid ${active ? T.accent : T.border}`,
     borderRadius: 10, padding: '12px 16px',
-    color: active ? D.accent : D.muted,
+    color: active ? T.accent : T.muted,
     fontSize: 13, fontFamily: "'Inter',sans-serif", fontWeight: 300,
     cursor: 'pointer', textAlign: 'left', transition: 'all .2s', letterSpacing: .3, width: '100%',
   });
   const OB_pill = (active) => ({
-    background: active ? `${D.accent}22` : 'transparent',
-    border: `1px solid ${active ? D.accent : D.border}`,
+    background: active ? `${T.accent}22` : 'transparent',
+    border: `1px solid ${active ? T.accent : T.border}`,
     borderRadius: 24, padding: '8px 15px',
-    color: active ? D.accent : D.muted,
+    color: active ? T.accent : T.muted,
     fontSize: 12, fontFamily: "'Inter',sans-serif", fontWeight: active ? 500 : 300,
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
     transition: 'all .2s', letterSpacing: .3,
   });
   const OB_cta = (enabled) => ({
-    background: enabled ? D.accent : 'transparent',
-    border: `1px solid ${enabled ? D.accent : D.border}`,
+    background: enabled ? T.accent : 'transparent',
+    border: `1px solid ${enabled ? T.accent : T.border}`,
     borderRadius: 24, padding: '9px 22px',
-    color: enabled ? '#000' : D.dim,
+    color: enabled ? '#000' : T.dim,
     fontSize: 11, fontFamily: "'Inter',sans-serif", fontWeight: enabled ? 600 : 300,
     letterSpacing: 2, textTransform: 'uppercase',
     cursor: enabled ? 'pointer' : 'default', transition: 'all .3s', alignSelf: 'flex-start',
   });
   const OB_input = {
     background: 'transparent', border: 'none',
-    borderBottom: `1px solid ${D.border}`,
-    color: D.text, fontSize: 18,
+    borderBottom: `1px solid ${T.border}`,
+    color: T.text, fontSize: 18,
     fontFamily: "'Lora',serif", fontStyle: 'italic',
     padding: '6px 0', outline: 'none', width: '100%',
-    caretColor: D.accent,
+    caretColor: T.accent,
   };
   // Restore saved progress on mount
   const saved = obLoad();
@@ -300,11 +299,11 @@ Reglas:
       {/* Wordmark */}
       <OBAppear delay={0} style={{marginBottom:60}}>
         <div style={{display:'flex',alignItems:'center',gap:9}}>
-          <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={D.border} strokeWidth="1.1">
+          <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={T.border} strokeWidth="1.1">
             <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.44-4.44 2.5 2.5 0 0 1 0-3.1 2.5 2.5 0 0 1 2.44-4.5A2.5 2.5 0 0 1 9.5 2Z"/>
             <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.44-4.44 2.5 2.5 0 0 0 0-3.1 2.5 2.5 0 0 0-2.44-4.5A2.5 2.5 0 0 0 14.5 2Z"/>
           </svg>
-          <span style={{fontSize:10,color:D.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',fontFamily:"'Inter',sans-serif"}}>
+          <span style={{fontSize:10,color:T.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',fontFamily:"'Inter',sans-serif"}}>
             Segundo Cerebro
           </span>
         </div>
@@ -314,24 +313,24 @@ Reglas:
       {gStep==='api'&&<>
         <OBAppear delay={180} style={{marginBottom:24}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{width:32,height:32,borderRadius:10,background:D.border,
-              border:`1px solid ${D.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>
+            <div style={{width:32,height:32,borderRadius:10,background:T.border,
+              border:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>
               🧠
             </div>
-            <span style={{fontSize:10,color:D.dim,letterSpacing:2,textTransform:'uppercase',
+            <span style={{fontSize:10,color:T.dim,letterSpacing:2,textTransform:'uppercase',
               fontFamily:"'Inter',sans-serif",fontWeight:300}}>Psicke · IA</span>
           </div>
         </OBAppear>
         <OBAppear delay={350} style={{marginBottom:20}}>
-          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:D.muted,lineHeight:1.75,margin:0}}>
+          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:T.muted,lineHeight:1.75,margin:0}}>
             Hola. Soy <em>Psicke</em>, tu asistente dentro de Segundo Cerebro.
           </p>
         </OBAppear>
         <OBAppear delay={580} style={{marginBottom:36}}>
-          <p style={{fontSize:14,fontFamily:"'Inter',sans-serif",fontWeight:300,color:D.dim,lineHeight:1.85,margin:0}}>
+          <p style={{fontSize:14,fontFamily:"'Inter',sans-serif",fontWeight:300,color:T.dim,lineHeight:1.85,margin:0}}>
             Puedo ayudarte a organizar mejor lo que escribas, responderte preguntas y acompañarte en tu productividad.
             Para eso necesito una{' '}
-            <span style={{color:D.muted}}>Google Gemini API Key</span>
+            <span style={{color:T.muted}}>Google Gemini API Key</span>
             {' '}— es gratis y toma menos de un minuto obtenerla.
           </p>
         </OBAppear>
@@ -350,7 +349,7 @@ Reglas:
             {apiInput&&(
               <button onClick={()=>setShowApiKey(s=>!s)}
                 style={{position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',
-                  background:'none',border:'none',color:D.dim,fontSize:11,
+                  background:'none',border:'none',color:T.dim,fontSize:11,
                   cursor:'pointer',fontFamily:"'Inter',sans-serif",fontWeight:300,padding:0}}>
                 {showApiKey?'ocultar':'ver'}
               </button>
@@ -360,12 +359,12 @@ Reglas:
             Activar Psicke
           </button>
           <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
-            <div style={{flex:1,height:1,background:D.border}}/>
-            <span style={{fontSize:10,color:D.border,fontFamily:"'Inter',sans-serif",fontWeight:300}}>o</span>
-            <div style={{flex:1,height:1,background:D.border}}/>
+            <div style={{flex:1,height:1,background:T.border}}/>
+            <span style={{fontSize:10,color:T.border,fontFamily:"'Inter',sans-serif",fontWeight:300}}>o</span>
+            <div style={{flex:1,height:1,background:T.border}}/>
           </div>
           <button onClick={()=>confirmApi(true)}
-            style={{background:'transparent',border:'none',color:D.dim,fontSize:11,
+            style={{background:'transparent',border:'none',color:T.dim,fontSize:11,
               fontFamily:"'Inter',sans-serif",fontWeight:300,cursor:'pointer',letterSpacing:.5,
               padding:'6px 0',textAlign:'center'}}>
             Continuar sin IA — agregarla después en Configuración
@@ -373,7 +372,7 @@ Reglas:
         </OBAppear>
         <OBAppear delay={1300} style={{marginTop:32}}>
           <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer"
-            style={{fontSize:10,color:D.border,fontFamily:"'Inter',sans-serif",
+            style={{fontSize:10,color:T.border,fontFamily:"'Inter',sans-serif",
               fontWeight:300,textDecoration:'none',display:'flex',alignItems:'center',gap:5}}>
             <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity=".5">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
@@ -386,10 +385,10 @@ Reglas:
       {/* ── NAME ── */}
       {gStep==='name'&&<>
         <OBAppear delay={180} style={{marginBottom:20}}>
-          <p style={{fontSize:10,color:D.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>01 / 03</p>
+          <p style={{fontSize:10,color:T.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>01 / 03</p>
         </OBAppear>
         <OBAppear delay={350} style={{marginBottom:36}}>
-          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:D.muted,lineHeight:1.7,margin:0}}>
+          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:T.muted,lineHeight:1.7,margin:0}}>
             Antes de empezar, <em>¿cómo te gusta que te llamen?</em>
           </p>
         </OBAppear>
@@ -400,17 +399,17 @@ Reglas:
           <button onClick={confirmName} style={OB_cta(!!inputVal.trim())}>Continuar</button>
         </OBAppear>
         <OBAppear delay={1100} style={{marginTop:36}}>
-          <p style={{fontSize:10,color:D.border,margin:0,fontFamily:"'Inter',sans-serif"}}>Presiona Enter para continuar</p>
+          <p style={{fontSize:10,color:T.border,margin:0,fontFamily:"'Inter',sans-serif"}}>Presiona Enter para continuar</p>
         </OBAppear>
       </>}
 
       {/* ── CHALLENGE ── */}
       {gStep==='challenge'&&<>
         <OBAppear delay={180} style={{marginBottom:20}}>
-          <p style={{fontSize:10,color:D.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>02 / 03</p>
+          <p style={{fontSize:10,color:T.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>02 / 03</p>
         </OBAppear>
         <OBAppear delay={350} style={{marginBottom:36}}>
-          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:D.muted,lineHeight:1.7,margin:0}}>
+          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:T.muted,lineHeight:1.7,margin:0}}>
             Hola, <em>{userName}</em>. Todos llegamos con una necesidad distinta.{' '}
             <em>¿Cuál es la tuya ahora mismo?</em>
           </p>
@@ -425,17 +424,17 @@ Reglas:
           </div>
         </OBAppear>
         <OBAppear delay={1100} style={{marginTop:36}}>
-          <p style={{fontSize:10,color:D.border,margin:0,fontFamily:"'Inter',sans-serif"}}>Tómate tu tiempo</p>
+          <p style={{fontSize:10,color:T.border,margin:0,fontFamily:"'Inter',sans-serif"}}>Tómate tu tiempo</p>
         </OBAppear>
       </>}
 
       {/* ── AREAS ── */}
       {gStep==='areas'&&<>
         <OBAppear delay={180} style={{marginBottom:20}}>
-          <p style={{fontSize:10,color:D.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>03 / 03</p>
+          <p style={{fontSize:10,color:T.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>03 / 03</p>
         </OBAppear>
         <OBAppear delay={350} style={{marginBottom:36}}>
-          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:D.muted,lineHeight:1.7,margin:0}}>
+          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:T.muted,lineHeight:1.7,margin:0}}>
             Segundo Cerebro se organiza alrededor de tu vida.{' '}
             <em>¿Qué áreas quieres que cuide contigo?</em>
           </p>
@@ -457,20 +456,20 @@ Reglas:
       {/* ── AREA QUESTIONS ── */}
       {gStep==='area_questions'&&curQ&&<>
         <OBAppear delay={100} style={{marginBottom:22,display:'flex',alignItems:'center',gap:12}}>
-          <span style={{fontSize:11,color:D.dim,fontWeight:300,letterSpacing:1.5,textTransform:'uppercase',
+          <span style={{fontSize:11,color:T.dim,fontWeight:300,letterSpacing:1.5,textTransform:'uppercase',
             display:'flex',alignItems:'center',gap:6,fontFamily:"'Inter',sans-serif"}}>
             <span style={{fontSize:14}}>{areaInfo?.emoji}</span>{areaInfo?.label}
           </span>
-          <div style={{flex:1,height:1,background:D.border,borderRadius:1}}>
-            <div style={{height:'100%',borderRadius:1,background:D.dim,
+          <div style={{flex:1,height:1,background:T.border,borderRadius:1}}>
+            <div style={{height:'100%',borderRadius:1,background:T.dim,
               width:`${totalQs?((doneQs/totalQs)*100):0}%`,transition:'width .5s ease'}}/>
           </div>
-          <span style={{fontSize:10,color:D.dim,fontWeight:300,whiteSpace:'nowrap',fontFamily:"'Inter',sans-serif"}}>
+          <span style={{fontSize:10,color:T.dim,fontWeight:300,whiteSpace:'nowrap',fontFamily:"'Inter',sans-serif"}}>
             {doneQs+1} / {totalQs}
           </span>
         </OBAppear>
         <OBAppear delay={280} style={{marginBottom:34}}>
-          <p style={{fontSize:20,fontFamily:"'Lora',serif",fontWeight:400,color:D.muted,lineHeight:1.72,margin:0}}>
+          <p style={{fontSize:20,fontFamily:"'Lora',serif",fontWeight:400,color:T.muted,lineHeight:1.72,margin:0}}>
             {curQ.question(userName)}
           </p>
         </OBAppear>
@@ -488,7 +487,7 @@ Reglas:
               <input ref={areaInputRef} value={areaInput} onChange={e=>setAreaInput(e.target.value)}
                 onKeyDown={e=>e.key==='Enter'&&canNext&&nextQ()}
                 placeholder={curQ.placeholder} style={OB_input}/>
-              <p style={{fontSize:10,color:D.dim,fontWeight:300,margin:0,letterSpacing:.3,fontFamily:"'Inter',sans-serif"}}>
+              <p style={{fontSize:10,color:T.dim,fontWeight:300,margin:0,letterSpacing:.3,fontFamily:"'Inter',sans-serif"}}>
                 {curQ.hint}
               </p>
               <div style={{display:'flex',gap:14,alignItems:'center',marginTop:4}}>
@@ -497,9 +496,9 @@ Reglas:
                 </button>
                 {!curQ.optional&&(
                   <button onClick={nextQ} style={{background:'transparent',border:'none',
-                    color:D.dim,fontSize:11,fontFamily:"'Inter',sans-serif",
+                    color:T.dim,fontSize:11,fontFamily:"'Inter',sans-serif",
                     fontWeight:300,cursor:'pointer',letterSpacing:.5,padding:0,
-                    textDecoration:'underline',textDecorationColor:D.border}}>
+                    textDecoration:'underline',textDecorationColor:T.border}}>
                     omitir
                   </button>
                 )}
@@ -512,15 +511,15 @@ Reglas:
       {/* ── DONE ── */}
       {gStep==='done'&&<>
         <OBAppear delay={150} style={{marginBottom:20}}>
-          <p style={{fontSize:10,color:D.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>Todo listo</p>
+          <p style={{fontSize:10,color:T.dim,fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>Todo listo</p>
         </OBAppear>
         <OBAppear delay={350} style={{marginBottom:10}}>
-          <p style={{fontSize:24,fontFamily:"'Lora',serif",color:D.text,lineHeight:1.6,margin:0}}>
+          <p style={{fontSize:24,fontFamily:"'Lora',serif",color:T.text,lineHeight:1.6,margin:0}}>
             Bienvenido, <em>{userName}</em>.
           </p>
         </OBAppear>
         <OBAppear delay={600} style={{marginBottom:36}}>
-          <p style={{fontSize:15,fontFamily:"'Lora',serif",color:D.dim,lineHeight:1.8,margin:0,fontStyle:'italic'}}>
+          <p style={{fontSize:15,fontFamily:"'Lora',serif",color:T.dim,lineHeight:1.8,margin:0,fontStyle:'italic'}}>
             Tu segundo cerebro ya está tomando forma. Todo tiene su lugar aquí.
           </p>
         </OBAppear>
@@ -530,15 +529,15 @@ Reglas:
           <button
             onClick={polishing?undefined:handleFinish}
             disabled={polishing}
-            style={{background: polishing?D.border:D.border,
-              border:`1px solid ${polishing?D.border:D.dim}`,
+            style={{background: polishing?T.border:T.border,
+              border:`1px solid ${polishing?T.border:T.dim}`,
               borderRadius:28,padding:'14px 36px',
-              color: polishing?D.dim:D.text,
+              color: polishing?T.dim:T.text,
               fontSize:11, fontFamily:"'Inter',sans-serif",fontWeight:400,letterSpacing:2,
               textTransform:'uppercase',cursor:polishing?'default':'pointer',
               transition:'all .35s',display:'flex',alignItems:'center',gap:10}}
-            onMouseEnter={e=>{ if(!polishing){ e.currentTarget.style.background=D.border;e.currentTarget.style.color=D.text;e.currentTarget.style.borderColor=D.muted; }}}
-            onMouseLeave={e=>{ if(!polishing){ e.currentTarget.style.background=D.border;e.currentTarget.style.color=D.text;e.currentTarget.style.borderColor=D.dim; }}}>
+            onMouseEnter={e=>{ if(!polishing){ e.currentTarget.style.background=T.border;e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.muted; }}}
+            onMouseLeave={e=>{ if(!polishing){ e.currentTarget.style.background=T.border;e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.dim; }}}>
             {polishing?(
               <>
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
@@ -557,7 +556,7 @@ Reglas:
             )}
           </button>
           {polishing&&(
-            <p style={{fontSize:10,color:D.dim,fontFamily:"'Inter',sans-serif",
+            <p style={{fontSize:10,color:T.dim,fontFamily:"'Inter',sans-serif",
               fontWeight:300,margin:'10px 0 0',letterSpacing:.5}}>
               Reescribiendo tus respuestas para mayor claridad…
             </p>
@@ -569,15 +568,15 @@ Reglas:
           <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:Object.entries(seedData).filter(([,v])=>v).length?16:0}}>
             {selAreas.map(id=>{ const a=OB_AREAS.find(x=>x.id===id); return(
               <span key={id} style={{fontSize:11,padding:'5px 13px',borderRadius:24,
-                border:`1px solid ${D.border}`,color:D.dim,
+                border:`1px solid ${T.border}`,color:T.dim,
                 fontFamily:"'Inter',sans-serif",fontWeight:300,display:'flex',alignItems:'center',gap:6}}>
                 {a.emoji} {a.label}
               </span>
             );})}
           </div>
           {Object.entries(seedData).filter(([,v])=>v).length>0&&(
-            <div style={{borderTop:`1px solid ${D.border}`,paddingTop:16,display:'flex',flexDirection:'column',gap:6}}>
-              <p style={{fontSize:10,color:D.dim,fontWeight:300,letterSpacing:2,textTransform:'uppercase',margin:'0 0 8px',fontFamily:"'Inter',sans-serif"}}>
+            <div style={{borderTop:`1px solid ${T.border}`,paddingTop:16,display:'flex',flexDirection:'column',gap:6}}>
+              <p style={{fontSize:10,color:T.dim,fontWeight:300,letterSpacing:2,textTransform:'uppercase',margin:'0 0 8px',fontFamily:"'Inter',sans-serif"}}>
                 Pre-llenado en tu app
               </p>
               {Object.entries(seedData).filter(([,v])=>v).map(([key,val])=>{
@@ -587,8 +586,8 @@ Reglas:
                 return(
                   <div key={key} style={{display:'flex',alignItems:'flex-start',gap:10}}>
                     <span style={{fontSize:11,minWidth:22}}>{meta.icon}</span>
-                    <span style={{fontSize:10,color:D.dim,fontWeight:300,letterSpacing:.3,fontFamily:"'Inter',sans-serif"}}>
-                      <span style={{color:D.dim,fontWeight:400}}>{meta.label}</span>
+                    <span style={{fontSize:10,color:T.dim,fontWeight:300,letterSpacing:.3,fontFamily:"'Inter',sans-serif"}}>
+                      <span style={{color:T.dim,fontWeight:400}}>{meta.label}</span>
                       {' — '}{display}
                     </span>
                   </div>
@@ -603,14 +602,14 @@ Reglas:
 
   return(
     <div style={{position:'fixed',inset:0,zIndex:9000,
-      background:D.bg,
+      background:T.bg,
       display:'flex',alignItems:'flex-start',justifyContent:'center',
       padding:'48px 24px 64px',overflowY:'auto',overflowX:'hidden'}}>
 
       {/* Warm ambient */}
       <div style={{position:'absolute',top:'-10%',left:'50%',transform:'translateX(-50%)',
         width:600,height:400,borderRadius:'50%',pointerEvents:'none',
-        background:`radial-gradient(ellipse, ${D.bgAmbient} 0%, transparent 65%)`}}/>
+        background:`radial-gradient(ellipse, ${T.bgAmbient} 0%, transparent 65%)`}}/>
 
       {/* Grain */}
       <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',opacity:.03,pointerEvents:'none'}}>
@@ -625,8 +624,8 @@ Reglas:
 
       <style>{`
         #obgrain ~ rect { display: block; }
-        em { color: D.text; font-style: italic; }
-        input[data-ob]::placeholder { color: D.border; }
+        em { color: T.text; font-style: italic; }
+        input[data-ob]::placeholder { color: T.border; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
