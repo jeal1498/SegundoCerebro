@@ -8,7 +8,7 @@ import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, Metri
 
 // ===================== ONBOARDING =====================
 // ===================== PSICKE ONBOARDING =====================
-const OB_AREAS = [
+export const OB_AREAS = [
   { id:'salud',      emoji:'💪', label:'Salud'          },
   { id:'trabajo',    emoji:'💼', label:'Trabajo'         },
   { id:'finanzas',   emoji:'💰', label:'Finanzas'        },
