@@ -5,6 +5,7 @@ import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
+import Coche from './Vehiculos.jsx';
 
 // ===================== HOGAR =====================
 const Hogar = ({data,setData,isMobile,onBack}) => {
