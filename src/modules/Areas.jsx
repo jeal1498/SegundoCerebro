@@ -11,7 +11,6 @@ import Hogar from './Hogar.jsx';
 import DesarrolloPersonal from './DesarrolloPersonal.jsx';
 import Relaciones from './Relaciones.jsx';
 import SideProjects from './SideProjects.jsx';
-import TrabajoEmbed from './TrabajoEmbed.jsx';
 
 // ===================== AREAS =====================
 const Areas = ({data,isMobile,onNavigate}) => {
@@ -83,9 +82,11 @@ const AreaDetail = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate,onB
     return <SideProjects data={data} setData={setData} isMobile={isMobile} onBack={onBack}/>;
   }
 
-  // Si el área es Trabajo, embeber app externa
+  // Si el área es Trabajo, abrir app externa directamente en nueva pestaña
   if(area.name.toLowerCase().includes('trabajo')||area.name.toLowerCase().includes('work')||area.icon==='💼'){
-    return <TrabajoEmbed isMobile={isMobile} onBack={onBack}/>;
+    window.open('https://jeal1498.github.io/AppWeb-ControlCheck/index.html','_blank','noopener,noreferrer');
+    if(onBack) onBack();
+    return null;
   }
 
   const areaObjectives=data.objectives.filter(o=>o.areaId===areaId);
