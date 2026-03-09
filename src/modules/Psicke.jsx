@@ -613,27 +613,8 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   // ── Challenge profile ──────────────────────────────────────────────────
   const challenge=(()=>{ try{ return localStorage.getItem('sb_challenge')||null; }catch{ return null; } })();
 
-  // ── Daily auto-summary — fires once per day when panel opens ──
-  useEffect(()=>{
-    if(!open||!apiKey) return;
-    const key='psicke_daily_summary';
-    const lastDate=localStorage.getItem(key);
-    if(lastDate===today()) return;
-    const timer=setTimeout(()=>{
-      localStorage.setItem(key,today());
-      // Prompt adapted to challenge
-      const summaryPrompt = {
-        capt:  'Hazme un resumen de hoy enfocado en: ¿qué tengo pendiente en el inbox? ¿hay algo que debería capturar antes de que se me olvide? Máximo 3 puntos, sé breve.',
-        prio:  'Dime cuál es la tarea más importante que debo hacer hoy y por qué. Luego dame 2 cosas más si las hay. Sé directo y concreto.',
-        habit: 'Empieza con el estado de mis hábitos de hoy. Luego dime si tengo rachas activas. Finalmente una cosa relevante del día. Máximo 3 puntos.',
-        proj:  'Dime qué proyectos tienen el siguiente paso más urgente hoy. ¿Hay tareas vencidas? Dame máximo 3 acciones concretas que puedo hacer ahora.',
-        over:  'Dame solo 2 cosas: la más urgente del día y algo que puedo ignorar con tranquilidad hoy. Nada más. Sé muy breve y calmado.',
-      }[challenge] || 'Hazme un resumen breve de mi día: tareas pendientes, hábitos sin completar, finanzas del mes y objetivos activos. Máximo 4 puntos clave.';
-      send(summaryPrompt);
-    },900);
-    return()=>clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[open]);
+  // ── Daily auto-summary — DESACTIVADO ──
+  // useEffect(()=>{ ... },[open]);
 
   // Subtle pulse every 8s to remind user Psicke exists
   useEffect(()=>{
