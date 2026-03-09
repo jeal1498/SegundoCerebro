@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
-import { T } from '../theme/tokens.js';
+import { T, getIsDark } from '../theme/tokens.js';
 import { save } from '../storage/index.js';
 import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
@@ -138,13 +138,13 @@ const obClear = () => { try { localStorage.removeItem(OB_SAVE_KEY); } catch {} }
 const Onboarding=({onDone})=>{
   // Theme-aware colors for the editorial dark onboarding
   const OBt = {
-    bg:        _isDark ? '#111009' : '#f8f5f1',
-    bgAmbient: _isDark ? 'rgba(100,80,50,0.12)' : 'rgba(180,140,80,0.10)',
-    w:  (a)=> _isDark ? `rgba(255,255,255,${a})` : `rgba(20,14,8,${a})`,
-    inputBg:   _isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)',
-    inputBorder: _isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)',
+    bg:        getIsDark() ? '#111009' : '#f8f5f1',
+    bgAmbient: getIsDark() ? 'rgba(100,80,50,0.12)' : 'rgba(180,140,80,0.10)',
+    w:  (a)=> getIsDark() ? `rgba(255,255,255,${a})` : `rgba(20,14,8,${a})`,
+    inputBg:   getIsDark() ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)',
+    inputBorder: getIsDark() ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)',
     accent:    '#b8974a',
-    accentDim: _isDark ? 'rgba(184,151,74,0.55)' : 'rgba(140,100,30,0.65)',
+    accentDim: getIsDark() ? 'rgba(184,151,74,0.55)' : 'rgba(140,100,30,0.65)',
   };
   // Restore saved progress on mount
   const saved = obLoad();

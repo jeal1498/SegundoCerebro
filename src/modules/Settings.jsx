@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
-import { T } from '../theme/tokens.js';
+import { T, getIsDark, setIsDark } from '../theme/tokens.js';
 import { save } from '../storage/index.js';
 import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
@@ -471,7 +471,7 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
                 </div>
               </div>
               <button onClick={()=>{
-                const next=!_isDark;_isDark=next;
+                const next=!getIsDark();setIsDark(next);
                 try{
                   const systemDark=window.matchMedia?.('(prefers-color-scheme: dark)').matches??true;
                   if(next===systemDark){ localStorage.removeItem('sb_theme'); }
@@ -485,7 +485,7 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
                 borderRadius:8,padding:'7px 14px',cursor:'pointer',
                 color:T.text,fontSize:13,fontFamily:'inherit',fontWeight:500,
               }}>
-                {_isDark?'☀️ Claro':'🌙 Oscuro'}
+                {getIsDark()?'☀️ Claro':'🌙 Oscuro'}
               </button>
             </div>
           </Card>
