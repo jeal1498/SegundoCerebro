@@ -6,6 +6,7 @@ import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 
+import { toast } from './Toast.jsx';
 // ===================== HOGAR =====================
 // ===================== COCHE =====================
 const FUEL_OPTIONS=['gasolina','diésel','eléctrico','GLP','GNC'];

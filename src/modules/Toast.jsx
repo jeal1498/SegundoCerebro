@@ -22,7 +22,7 @@ const ToastContainer=()=>{
   const tColor=(type)=>({success:T.accent,info:T.blue,warn:T.orange,error:T.red}[type]||T.accent);
   if(!toasts.length) return null;
   return (
-    <div style={{position:'fixed',bottom:isMobileGlobal?72:24,right:16,zIndex:9999,display:'flex',flexDirection:'column',gap:8,maxWidth:320,minWidth:240}}>
+    <div style={{position:'fixed',bottom:72,right:16,zIndex:9999,display:'flex',flexDirection:'column',gap:8,maxWidth:320,minWidth:240}}>
       {toasts.map(t=>(
         <div key={t.id} style={{background:T.surface2,border:`1px solid ${tColor(t.type)}40`,borderLeft:`3px solid ${tColor(t.type)}`,borderRadius:10,padding:'10px 14px',display:'flex',gap:10,alignItems:'flex-start',boxShadow:'0 4px 24px rgba(0,0,0,0.4)',animation:'slideIn 0.2s ease'}}>
           <div style={{flex:1}}>

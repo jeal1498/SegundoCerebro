@@ -6,6 +6,7 @@ import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 
+import { toast } from './Toast.jsx';
 // ===================== NOTES =====================
 const NOTE_TEMPLATES=[
   {id:'tpl1',name:'Reunión',icon:'🤝',content:`# Reunión — [Título]\n**Fecha:** \n**Asistentes:** \n\n## Agenda\n- \n\n## Decisiones\n- \n\n## Próximos pasos\n- [ ] `},

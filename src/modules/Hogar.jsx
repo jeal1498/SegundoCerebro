@@ -7,6 +7,7 @@ import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../c
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 import Coche from './Vehiculos.jsx';
 
+import { toast } from './Toast.jsx';
 // ===================== HOGAR =====================
 const Hogar = ({data,setData,isMobile,onBack}) => {
   const [tab,setTab]       = useState('mantenimientos');
