@@ -7,7 +7,7 @@ import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../c
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 import { OB_AREAS } from './Onboarding.jsx';
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
@@ -762,14 +762,16 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
 
       const d=await callApi();
       const candidate=d.candidates?.[0];
-      if(!candidate?.content?.parts?.[0]?.text){
+      // gemini-2.5+ returns thought parts (thought:true) before the actual text — skip them
+      const textPart=candidate?.content?.parts?.find(p=>!p.thought && p.text?.trim());
+      if(!textPart?.text){
         const reason=candidate?.finishReason||d.promptFeedback?.blockReason||'desconocido';
         const safetyRatings=candidate?.safetyRatings?.filter(r=>r.probability!=='NEGLIGIBLE').map(r=>`${r.category}:${r.probability}`).join(', ')||'';
         if(reason==='SAFETY')throw new Error('Respuesta bloqueada por filtros de seguridad. Intente reformular.');
         if(reason==='MAX_TOKENS')throw new Error('Respuesta cortada por límite de tokens. Intente un mensaje más corto.');
         throw new Error(`Sin respuesta (${reason}${safetyRatings?' · '+safetyRatings:''})`);
       }
-      const raw=candidate.content.parts[0].text;
+      const raw=textPart.text;
 
       // Parse and execute ALL save actions present
       const actions=parsePsickeAction(raw);
