@@ -131,11 +131,11 @@ const Dashboard = ({data,setData,isMobile,onNavigate}) => {
 
   // Per-challenge config: focusMsg, widget order, which KPIs to highlight
   const PROFILES = {
-    capt:  { emoji:'📥', color:T.orange,  focusMsg:'¿Qué tienes en la cabeza que no has anotado?',    order:['capture','kpi','inbox','tasks','projects','habits','pillars'] },
-    prio:  { emoji:'🎯', color:T.accent,  focusMsg:'¿Qué mueve la aguja hoy?',                        order:['capture','kpi','tasks','projects','objectives_mini','habits','pillars'] },
-    habit: { emoji:'🔥', color:'#ff8c42', focusMsg:'Un día a la vez — ¿cómo van los hábitos de hoy?', order:['capture','kpi','habits','tasks','projects','pillars'] },
-    proj:  { emoji:'📁', color:'#a78bfa', focusMsg:'¿Cuál es el siguiente paso en tu proyecto?',      order:['capture','kpi','projects','tasks','habits','inbox','pillars'] },
-    over:  { emoji:'🌿', color:T.blue,    focusMsg:'Solo una cosa a la vez. Tú puedes.',              order:['capture','kpi_mini','tasks_top1','habits','pillars'] },
+    capt:  { emoji:'📥', color:T.orange,  focusMsg:'¿Qué tienes en la cabeza que no has anotado?',    order:['kpi','inbox','tasks','projects','habits','pillars'] },
+    prio:  { emoji:'🎯', color:T.accent,  focusMsg:'¿Qué mueve la aguja hoy?',                        order:['kpi','tasks','projects','objectives_mini','habits','pillars'] },
+    habit: { emoji:'🔥', color:'#ff8c42', focusMsg:'Un día a la vez — ¿cómo van los hábitos de hoy?', order:['kpi','habits','tasks','projects','pillars'] },
+    proj:  { emoji:'📁', color:'#a78bfa', focusMsg:'¿Cuál es el siguiente paso en tu proyecto?',      order:['kpi','projects','tasks','habits','inbox','pillars'] },
+    over:  { emoji:'🌿', color:T.blue,    focusMsg:'Solo una cosa a la vez. Tú puedes.',              order:['kpi_mini','tasks_top1','habits','pillars'] },
   };
   const profile = challenge ? PROFILES[challenge] : null;
 
@@ -147,8 +147,6 @@ const Dashboard = ({data,setData,isMobile,onNavigate}) => {
 
   // ── Widget renderer ─────────────────────────────────────────────────────
   const widgets = {
-    capture: (
-    ),
     kpi: (
       <div key="kpi" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16}}>
         {[
@@ -489,7 +487,7 @@ const Dashboard = ({data,setData,isMobile,onNavigate}) => {
   };
 
   // Widget order based on challenge profile
-  const widgetOrder = profile ? profile.order : ['capture','kpi','projects','tasks','habits','inbox','pillars'];
+  const widgetOrder = profile ? profile.order : ['kpi','projects','tasks','habits','inbox','pillars'];
 
   return (
     <div>
