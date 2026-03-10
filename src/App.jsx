@@ -55,6 +55,9 @@ function App() {
   const [apiKey, setApiKey]           = useState(() => { try { return localStorage.getItem('sb_gemini_key') || ''; } catch { return ''; } });
   const [showWelcome, setShowWelcome] = useState(() => { try { return !localStorage.getItem('sb_gemini_key'); } catch { return true; } });
   const [welcomeKeyInput, setWelcomeKeyInput] = useState('');
+  const [showCapture, setShowCapture]     = useState(false);
+  const [captureText, setCaptureText]     = useState('');
+  const [captureDest, setCaptureDest]     = useState('inbox');
   const [transitioning, setTransitioning] = useState(false);
   const [isOnline, setIsOnline]       = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isDark, setIsDarkState]      = useState(() => {
@@ -205,6 +208,39 @@ function App() {
     setTransitioning(true);
     setTimeout(() => { setView('dashboard'); setViewHint(null); setTransitioning(false); }, 120);
   }, []);
+
+  const CAPTURE_DEST = [
+    {id:'inbox', label:'Inbox',   emoji:'📥'},
+    {id:'task',  label:'Tarea',   emoji:'✅'},
+    {id:'note',  label:'Nota',    emoji:'📝'},
+  ];
+
+  const submitCapture = useCallback(() => {
+    if (!captureText.trim() || !data) return;
+    const text = captureText.trim();
+    const todayStr = today();
+    if (captureDest === 'task') {
+      const task = { id: uid(), title: text, status: 'todo', createdAt: todayStr, projectId: '', priority: 'media', dueDate: todayStr, subtasks: [], notes: '', objectiveId: '' };
+      const updated = [...(data.tasks || []), task];
+      setData(d => ({ ...d, tasks: updated }));
+      save('tasks', updated);
+      toast.success('✅', 'Tarea creada');
+    } else if (captureDest === 'note') {
+      const note = { id: uid(), title: text, content: '', tags: [], areaId: '', createdAt: todayStr };
+      const updated = [...(data.notes || []), note];
+      setData(d => ({ ...d, notes: updated }));
+      save('notes', updated);
+      toast.success('📝', 'Nota guardada');
+    } else {
+      const item = { id: uid(), content: text, createdAt: todayStr, processed: false };
+      const updated = [item, ...(data.inbox || [])];
+      setData(d => ({ ...d, inbox: updated }));
+      save('inbox', updated);
+      toast.success('📥', 'Guardado en Inbox');
+    }
+    setCaptureText('');
+    setShowCapture(false);
+  }, [captureText, captureDest, data, setData]);
 
   if (!data) return <AppLoader />;
 
@@ -395,6 +431,67 @@ function App() {
           </div>
           <button onClick={triggerInstall} style={{ background:T.accent,border:'none',borderRadius:8,padding:'7px 14px',color:'#000',fontSize:12,fontWeight:700,cursor:'pointer',flexShrink:0,whiteSpace:'nowrap' }}>Instalar</button>
           <button onClick={dismissInstallBanner} style={{ background:'none',border:'none',color:T.dim,cursor:'pointer',fontSize:18,padding:'0 2px',flexShrink:0,lineHeight:1 }}>×</button>
+        </div>
+      )}
+
+      {/* ── Floating Capture Button ── */}
+      {!showWelcome && (
+        <button
+          onClick={() => { setShowCapture(true); setCaptureText(''); setCaptureDest('inbox'); }}
+          style={{ position:'fixed',bottom:isMobile?82:24,right:16,zIndex:200,width:52,height:52,borderRadius:16,background:T.accent,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 20px ${T.accent}55`,transition:'transform .15s' }}
+          onMouseDown={e => e.currentTarget.style.transform='scale(.92)'}
+          onMouseUp={e => e.currentTarget.style.transform='scale(1)'}
+          onTouchStart={e => e.currentTarget.style.transform='scale(.92)'}
+          onTouchEnd={e => e.currentTarget.style.transform='scale(1)'}
+        >
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      )}
+
+      {/* ── Capture Modal ── */}
+      {showCapture && (
+        <div style={{ position:'fixed',inset:0,zIndex:500,background:'rgba(0,0,0,.55)',display:'flex',alignItems:'flex-end',justifyContent:'center' }}
+          onClick={e => { if(e.target===e.currentTarget) setShowCapture(false); }}>
+          <div style={{ width:'100%',maxWidth:480,background:T.surface,borderRadius:'20px 20px 0 0',padding:'20px 20px 36px',animation:'sbSlideUp .22s cubic-bezier(.34,1.56,.64,1)' }}>
+            {/* Handle */}
+            <div style={{ width:36,height:4,borderRadius:2,background:T.border,margin:'0 auto 20px' }}/>
+            <div style={{ fontFamily:"'Sora',sans-serif",fontSize:15,fontWeight:700,color:T.text,marginBottom:16 }}>Captura rápida</div>
+
+            {/* Destination pills */}
+            <div style={{ display:'flex',gap:6,marginBottom:14 }}>
+              {CAPTURE_DEST.map(d => (
+                <button key={d.id} onClick={() => setCaptureDest(d.id)}
+                  style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:20,border:`1px solid ${captureDest===d.id?T.accent:T.border}`,background:captureDest===d.id?`${T.accent}18`:'transparent',color:captureDest===d.id?T.accent:T.muted,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit',transition:'all .12s' }}>
+                  <span>{d.emoji}</span>{d.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Text input */}
+            <textarea
+              autoFocus
+              rows={3}
+              placeholder={captureDest==='task'?'¿Qué tarea necesitas hacer?':captureDest==='note'?'¿Qué quieres anotar?':'¿Qué tienes en mente?'}
+              value={captureText}
+              onChange={e => setCaptureText(e.target.value)}
+              onKeyDown={e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); submitCapture(); } }}
+              style={{ width:'100%',background:T.surface2,border:`1.5px solid ${captureText?T.accent:T.border}`,borderRadius:12,padding:'12px 14px',color:T.text,fontSize:14,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:'none',resize:'none',lineHeight:1.6,transition:'border-color .15s',marginBottom:14 }}
+            />
+
+            {/* Actions */}
+            <div style={{ display:'flex',gap:10 }}>
+              <button onClick={() => setShowCapture(false)}
+                style={{ flex:1,background:T.surface2,border:`1px solid ${T.border}`,borderRadius:12,padding:'12px 0',color:T.muted,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>
+                Cancelar
+              </button>
+              <button onClick={submitCapture} disabled={!captureText.trim()}
+                style={{ flex:2,background:captureText.trim()?T.accent:'#2a3440',border:'none',borderRadius:12,padding:'12px 0',color:captureText.trim()?'#000':T.dim,fontSize:13,fontWeight:700,cursor:captureText.trim()?'pointer':'not-allowed',fontFamily:"'Sora',sans-serif",transition:'all .2s' }}>
+                Guardar {CAPTURE_DEST.find(d=>d.id===captureDest)?.emoji}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
