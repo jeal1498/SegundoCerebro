@@ -294,7 +294,6 @@ function App() {
       {isMobile && (
         <div style={{ background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
           <div style={{ display:'flex',alignItems:'center',gap:8 }}>
-            <div style={{ width:28,height:28,background:`linear-gradient(135deg,${T.accent},${T.orange})`,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:17 }}>🧠</div>
             <span style={{ fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:T.text }}>
               Segundo <span style={{ color:T.accent }}>Cerebro</span>
             </span>
