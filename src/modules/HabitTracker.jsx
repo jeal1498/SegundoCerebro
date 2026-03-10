@@ -12,6 +12,10 @@ const HabitTracker = ({data,setData,isMobile}) => {
   const [form,setForm]=useState({name:'',frequency:'daily',objectiveId:''});
   const [selectedHabit,setSelectedHabit]=useState(null);
   const [freqFilter,setFreqFilter]=useState('all');
+  const [tab21,setTab21]=useState(false); // toggle to challenges view
+  const [challengeModal,setChallengeModal]=useState(false);
+  const [cForm,setCForm]=useState({name:'',replace:'',why:'',startDate:today(),habit:''});
+  const [selChallenge,setSelChallenge]=useState(null);
   const [dragIdx,setDragIdx]=useState(null);
   const [touchDrag,setTouchDrag]=useState(null); // {idx, startY, currentY, el}
   const habitListRef=useRef(null);
@@ -173,10 +177,68 @@ const HabitTracker = ({data,setData,isMobile}) => {
     setDragIdx(null);
   };
 
+  // ── 21-Day Challenge CRUD ───────────────────────────────
+  const challenges = data.habitChallenges||[];
+
+  const saveChallenge=()=>{
+    if(!cForm.name.trim())return;
+    const c={...cForm,id:uid(),completions:[],createdAt:today()};
+    const upd=[c,...challenges];
+    setData(d=>({...d,habitChallenges:upd}));save('habitChallenges',upd);
+    setChallengeModal(false);setCForm({name:'',replace:'',why:'',startDate:today(),habit:''});
+    setSelChallenge(c);
+  };
+
+  const toggleChallengeDay=(cId,dateStr)=>{
+    const upd=challenges.map(c=>{
+      if(c.id!==cId)return c;
+      const has=c.completions.includes(dateStr);
+      return {...c,completions:has?c.completions.filter(d=>d!==dateStr):[...c.completions,dateStr]};
+    });
+    setData(d=>({...d,habitChallenges:upd}));save('habitChallenges',upd);
+    setSelChallenge(upd.find(c=>c.id===cId));
+  };
+
+  const delChallenge=(id)=>{
+    if(!window.confirm('¿Eliminar este desafío?'))return;
+    const upd=challenges.filter(c=>c.id!==id);
+    setData(d=>({...d,habitChallenges:upd}));save('habitChallenges',upd);
+    if(selChallenge?.id===id)setSelChallenge(null);
+  };
+
+  const getChallengeGrid=(c)=>{
+    const start=new Date(c.startDate+'T12:00');
+    return Array.from({length:21},(_,i)=>{
+      const d=new Date(start);d.setDate(d.getDate()+i);
+      const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const done=c.completions.includes(ds);
+      const past=ds<todayStr;
+      const isToday=ds===todayStr;
+      return {ds,i,isToday,done,past};
+    });
+  };
+
+  const getChallengeStreak=(c)=>{
+    let s=0,d=new Date(todayStr+'T12:00');
+    for(let i=0;i<21;i++){
+      const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      if(c.completions.includes(ds)){s++;d.setDate(d.getDate()-1);}else break;
+    }
+    return s;
+  };
+
   return (
     <div>
       <PageHeader title="Habit Tracker" subtitle="Construye rachas diarias 🔥" isMobile={isMobile}
-        action={<Btn onClick={()=>setModal(true)} size="sm"><Icon name="plus" size={14}/>Nuevo</Btn>}/>
+        action={
+          <div style={{display:'flex',gap:6}}>
+            <Btn size="sm" variant="ghost" onClick={()=>setTab21(t=>!t)}>
+              {tab21?'📋 Hábitos':'🔥 21 días'}
+            </Btn>
+            {!tab21&&<Btn size="sm" onClick={()=>setModal(true)}><Icon name="plus" size={14}/>Nuevo</Btn>}
+            {tab21&&<Btn size="sm" onClick={()=>setChallengeModal(true)}><Icon name="plus" size={14}/>Desafío</Btn>}
+          </div>
+        }/>
 
       {/* ── Stats ── */}
       {data.habits.length>0&&(
@@ -358,6 +420,90 @@ const HabitTracker = ({data,setData,isMobile}) => {
         )}
       </div>
 
+      {/* ═══ 21-DAY CHALLENGE UI ═══ */}
+      {tab21&&(
+        <div>
+          {selChallenge&&challenges.find(c=>c.id===selChallenge.id)&&(()=>{
+            const c=selChallenge;
+            const grid=getChallengeGrid(c);
+            const streak=getChallengeStreak(c);
+            const doneDays=c.completions.length;
+            const pct=Math.round((doneDays/21)*100);
+            const complete=doneDays>=21;
+            return (
+              <div style={{marginBottom:16}}>
+                <div style={{background:complete?`${T.green}10`:T.surface,border:`2px solid ${complete?T.green:T.accent}`,borderRadius:16,padding:16}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                    <div>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
+                        <span style={{fontSize:20}}>🔥</span>
+                        <span style={{color:T.text,fontWeight:700,fontSize:16}}>{c.name}</span>
+                        {complete&&<span style={{fontSize:11,background:`${T.green}20`,color:T.green,padding:'2px 8px',borderRadius:8,fontWeight:700}}>✅ COMPLETADO</span>}
+                      </div>
+                      {c.replace&&<div style={{fontSize:12,color:T.muted}}>Reemplaza: <em>{c.replace}</em></div>}
+                      {c.why&&<div style={{fontSize:12,color:T.dim,marginTop:2}}>💡 {c.why}</div>}
+                    </div>
+                    <button onClick={()=>delChallenge(c.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',padding:4}}><Icon name="trash" size={14}/></button>
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                      <span style={{fontSize:12,color:T.muted}}>{doneDays}/21 días · {pct}%</span>
+                      <span style={{fontSize:12,color:T.accent}}>🔥 Racha: {streak}</span>
+                    </div>
+                    <div style={{background:T.border,borderRadius:6,height:8}}>
+                      <div style={{height:'100%',borderRadius:6,background:complete?T.green:T.accent,width:`${pct}%`,transition:'width 0.5s'}}/>
+                    </div>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:6}}>
+                    {grid.map(({ds,i,isToday,done,past})=>(
+                      <button key={ds} onClick={()=>toggleChallengeDay(c.id,ds)}
+                        style={{aspectRatio:'1',borderRadius:10,border:`2px solid ${done?T.accent:isToday?T.accent+'80':T.border}`,background:done?T.accent:isToday?`${T.accent}15`:'transparent',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:2}}>
+                        <span style={{fontSize:11,fontWeight:done?700:400,color:done?'#000':past?T.dim:isToday?T.accent:T.dim}}>{i+1}</span>
+                        {done&&<span style={{fontSize:8,color:'#000'}}>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{marginTop:8,fontSize:11,color:T.dim,textAlign:'center'}}>Toca cada cuadro para marcar ese día completado</div>
+                </div>
+              </div>
+            );
+          })()}
+          {challenges.length===0?(
+            <div style={{textAlign:'center',padding:'40px 20px'}}>
+              <div style={{fontSize:48,marginBottom:12}}>🔥</div>
+              <div style={{color:T.muted,fontSize:15,fontWeight:600}}>Sin desafíos activos</div>
+              <div style={{color:T.dim,fontSize:13,marginTop:6,marginBottom:16}}>21 días para convertir un hábito en automático</div>
+              <Btn onClick={()=>setChallengeModal(true)}>🔥 Crear primer desafío</Btn>
+            </div>
+          ):(
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {challenges.map(c=>{
+                const done=c.completions.length;
+                const pct=Math.round((done/21)*100);
+                const complete=done>=21;
+                return (
+                  <div key={c.id} onClick={()=>setSelChallenge(selChallenge?.id===c.id?null:c)}
+                    style={{background:T.surface,border:`1px solid ${selChallenge?.id===c.id?T.accent:T.border}`,borderRadius:14,padding:'12px 14px',cursor:'pointer'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div style={{width:42,height:42,borderRadius:12,background:complete?`${T.green}20`:`${T.accent}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{complete?'🏆':'🔥'}</div>
+                      <div style={{flex:1}}>
+                        <div style={{color:T.text,fontWeight:600,fontSize:14}}>{c.name}</div>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+                          <div style={{flex:1,background:T.border,borderRadius:4,height:4}}>
+                            <div style={{height:'100%',borderRadius:4,background:complete?T.green:T.accent,width:`${pct}%`}}/>
+                          </div>
+                          <span style={{fontSize:11,color:complete?T.green:T.muted,fontWeight:600,flexShrink:0}}>{done}/21</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {modal&&(
         <Modal title="Nuevo hábito" onClose={()=>setModal(false)}>
           <div style={{display:'flex',flexDirection:'column',gap:14}}>
@@ -372,6 +518,43 @@ const HabitTracker = ({data,setData,isMobile}) => {
               {data.objectives.filter(o=>o.status==='active').map(o=><option key={o.id} value={o.id}>🎯 {o.title}</option>)}
             </Select>
             <Btn onClick={add} style={{width:'100%',justifyContent:'center'}}>Crear hábito</Btn>
+          </div>
+        </Modal>
+      )}
+      </div>
+      )}
+
+      {/* Challenge modal */}
+      </div>}
+
+      {/* Challenge modal */}
+      {challengeModal&&(
+        <Modal title="🔥 Nuevo desafío 21 días" onClose={()=>setChallengeModal(false)}>
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div>
+              <div style={{fontSize:12,color:T.muted,marginBottom:4}}>Hábito a construir *</div>
+              <input value={cForm.name} onChange={e=>setCForm(f=>({...f,name:e.target.value}))} placeholder="Ej. Meditar 10 minutos cada mañana"
+                style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/>
+            </div>
+            <div>
+              <div style={{fontSize:12,color:T.muted,marginBottom:4}}>Hábito que reemplaza (opcional)</div>
+              <input value={cForm.replace} onChange={e=>setCForm(f=>({...f,replace:e.target.value}))} placeholder="Ej. Ver el teléfono al despertar"
+                style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/>
+            </div>
+            <div>
+              <div style={{fontSize:12,color:T.muted,marginBottom:4}}>¿Por qué es importante para ti?</div>
+              <input value={cForm.why} onChange={e=>setCForm(f=>({...f,why:e.target.value}))} placeholder="Mi motivación es..."
+                style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/>
+            </div>
+            <div>
+              <div style={{fontSize:12,color:T.muted,marginBottom:4}}>Fecha de inicio</div>
+              <input type="date" value={cForm.startDate} onChange={e=>setCForm(f=>({...f,startDate:e.target.value}))}
+                style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/>
+            </div>
+            <div style={{padding:'10px 12px',background:`${T.accent}08`,border:`1px solid ${T.accent}20`,borderRadius:10,fontSize:12,color:T.muted,lineHeight:1.6}}>
+              💡 La ciencia dice que se necesitan <strong style={{color:T.text}}>21 días</strong> para que un comportamiento empiece a automatizarse. Marca cada día que lo cumplas.
+            </div>
+            <Btn onClick={saveChallenge} style={{width:'100%',justifyContent:'center'}}>🔥 Empezar desafío</Btn>
           </div>
         </Modal>
       )}

@@ -6,11 +6,14 @@ import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 
-import { toast } from './Toast.jsx';
 // ===================== OBJECTIVES =====================
 const Objectives = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) => {
   const [modal,setModal]=useState(false);
-  const [form,setForm]=useState({title:'',areaId:'',deadline:'',status:'active'});
+  const [smartStep,setSmartStep]=useState(0); // 0-3 multi-step wizard
+  const [form,setForm]=useState({
+    title:'',specific:'',measurable:'',achievable:'',relevant:'',
+    areaId:'',deadline:'',status:'active',
+  });
   const [view,setView]=useState('list');
   const [selected,setSelected]=useState(null);
   const [checkinModal,setCheckinModal]=useState(null);
@@ -478,17 +481,95 @@ const Objectives = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) =
         </div>
       )}
 
-      {/* New objective modal */}
+      {/* New objective modal — SMART wizard */}
       {modal&&(
-        <Modal title="Nuevo objetivo" onClose={()=>setModal(false)}>
+        <Modal title="🎯 Nuevo objetivo SMART" onClose={()=>{setModal(false);setSmartStep(0);setForm({title:'',specific:'',measurable:'',achievable:'',relevant:'',areaId:'',deadline:'',status:'active'});}}>
           <div style={{display:'flex',flexDirection:'column',gap:14}}>
-            <Input value={form.title} onChange={v=>setForm(f=>({...f,title:v}))} placeholder="¿Qué quieres lograr?"/>
-            <Select value={form.areaId||areaFilter||''} onChange={v=>setForm(f=>({...f,areaId:v}))}>
-              <option value="">Sin área</option>
-              {data.areas.map(a=><option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
-            </Select>
-            <Input type="date" value={form.deadline} onChange={v=>setForm(f=>({...f,deadline:v}))}/>
-            <Btn onClick={saveObj} style={{width:'100%',justifyContent:'center'}}>Crear objetivo</Btn>
+            {/* Step indicators */}
+            <div style={{display:'flex',gap:4}}>
+              {[['S','Específico'],['M','Medible'],['A','Alcanzable'],['T','Tiempo']].map(([letter,label],i)=>(
+                <div key={i} onClick={()=>setSmartStep(i)} style={{flex:1,cursor:'pointer',textAlign:'center'}}>
+                  <div style={{height:4,borderRadius:4,background:smartStep>=i?T.accent:T.border,marginBottom:4,transition:'background 0.2s'}}/>
+                  <div style={{fontSize:10,color:smartStep===i?T.accent:T.dim,fontWeight:smartStep===i?700:400}}>{letter}</div>
+                </div>
+              ))}
+            </div>
+            {/* Step 0: S — Específico */}
+            {smartStep===0&&(
+              <div>
+                <div style={{fontSize:13,color:T.text,fontWeight:600,marginBottom:4}}>📌 Específico: ¿Qué exactamente quieres lograr?</div>
+                <div style={{fontSize:11,color:T.dim,marginBottom:10,lineHeight:1.5}}>Sé concreto. Evita frases vagas como "mejorar" o "aprender más".</div>
+                <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Ej. Correr una media maratón de 21km"
+                  style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit',marginBottom:8}}/>
+                <input value={form.specific} onChange={e=>setForm(f=>({...f,specific:e.target.value}))} placeholder="¿Por qué este objetivo? ¿Quién está involucrado?"
+                  style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/>
+              </div>
+            )}
+            {/* Step 1: M — Medible */}
+            {smartStep===1&&(
+              <div>
+                <div style={{fontSize:13,color:T.text,fontWeight:600,marginBottom:4}}>📊 Medible: ¿Cómo sabrás que lo lograste?</div>
+                <div style={{fontSize:11,color:T.dim,marginBottom:10,lineHeight:1.5}}>Define números, fechas o resultados tangibles para medir tu avance.</div>
+                <input value={form.measurable} onChange={e=>setForm(f=>({...f,measurable:e.target.value}))} placeholder="Ej. Completar 21km en menos de 2h30min"
+                  style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/>
+              </div>
+            )}
+            {/* Step 2: A + R — Alcanzable + Relevante */}
+            {smartStep===2&&(
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <div>
+                  <div style={{fontSize:13,color:T.text,fontWeight:600,marginBottom:4}}>💪 Alcanzable: ¿Es realista para ti ahora?</div>
+                  <input value={form.achievable} onChange={e=>setForm(f=>({...f,achievable:e.target.value}))} placeholder="Ej. Ya corro 10km, entrenaré 4 veces/semana"
+                    style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:13,color:T.text,fontWeight:600,marginBottom:4}}>🎯 Relevante: ¿Por qué te importa?</div>
+                  <input value={form.relevant} onChange={e=>setForm(f=>({...f,relevant:e.target.value}))} placeholder="Ej. Quiero mejorar mi salud y tener más energía"
+                    style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:12,color:T.muted,marginBottom:4}}>Área de vida</div>
+                  <select value={form.areaId||areaFilter||''} onChange={e=>setForm(f=>({...f,areaId:e.target.value}))}
+                    style={{width:'100%',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}>
+                    <option value="">Sin área</option>
+                    {data.areas.map(a=><option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+            {/* Step 3: T — Tiempo */}
+            {smartStep===3&&(
+              <div>
+                <div style={{fontSize:13,color:T.text,fontWeight:600,marginBottom:4}}>⏰ Tiempo: ¿Cuál es tu fecha límite?</div>
+                <div style={{fontSize:11,color:T.dim,marginBottom:10,lineHeight:1.5}}>Sin fecha límite, los objetivos se quedan en el aire. Sé ambicioso pero realista.</div>
+                <input type="date" value={form.deadline} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))}
+                  style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit',marginBottom:14}}/>
+                {/* Summary */}
+                {form.title&&(
+                  <div style={{padding:'12px 14px',background:`${T.accent}08`,border:`1px solid ${T.accent}20`,borderRadius:12}}>
+                    <div style={{fontSize:11,color:T.accent,fontWeight:700,marginBottom:8,textTransform:'uppercase',letterSpacing:1}}>Resumen SMART</div>
+                    {[
+                      {letter:'S',val:form.title||form.specific},
+                      {letter:'M',val:form.measurable},
+                      {letter:'A',val:form.achievable},
+                      {letter:'R',val:form.relevant},
+                      {letter:'T',val:form.deadline},
+                    ].map(r=>r.val&&(
+                      <div key={r.letter} style={{display:'flex',gap:8,marginBottom:4}}>
+                        <span style={{width:18,height:18,borderRadius:'50%',background:T.accent,color:'#000',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{r.letter}</span>
+                        <span style={{fontSize:12,color:T.muted}}>{r.val}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Navigation */}
+            <div style={{display:'flex',gap:8}}>
+              {smartStep>0&&<Btn variant="ghost" onClick={()=>setSmartStep(s=>s-1)} style={{flex:1,justifyContent:'center'}}>← Anterior</Btn>}
+              {smartStep<3&&<Btn onClick={()=>{if(!form.title.trim()){alert('El título es obligatorio');return;}setSmartStep(s=>s+1);}} style={{flex:2,justifyContent:'center'}}>Siguiente →</Btn>}
+              {smartStep===3&&<Btn onClick={saveObj} style={{flex:2,justifyContent:'center'}}>🎯 Crear objetivo</Btn>}
+            </div>
           </div>
         </Modal>
       )}

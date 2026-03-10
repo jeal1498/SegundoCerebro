@@ -6,7 +6,6 @@ import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 
-import { toast } from './Toast.jsx';
 // ===================== HEALTH =====================
 const Health = ({data,setData,isMobile,onBack}) => {
   const [tab,setTab]=useState('trends');
@@ -21,6 +20,13 @@ const Health = ({data,setData,isMobile,onBack}) => {
   const notifRefs=useRef({});
 
   const meds=data.medications||[];
+  const medVisits=data.medicalVisits||[];
+  const medDocs=data.medicalDocs||[];
+  const [visitModal,setVisitModal]=useState(false);
+  const [docModal,setDocModal]=useState(false);
+  const [vForm,setVForm]=useState({date:'',specialty:'',doctor:'',clinic:'',reason:'',diagnosis:'',treatment:'',nextVisit:'',cost:'',notes:''});
+  const [dForm,setDForm]=useState({date:'',type:'analítica',title:'',description:'',lab:'',results:'',notes:''});
+  const [visitDetail,setVisitDetail]=useState(null);
 
   const saveMed=()=>{
     if(!medForm.name.trim())return;
@@ -197,7 +203,7 @@ const Health = ({data,setData,isMobile,onBack}) => {
 
       {/* Tab nav */}
       <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
-        {[['trends','📈 Tendencias'],['workouts','🏃 Entrenos'],['summary','📊 Resumen'],['goals','🎯 Metas'],['meds','💊 Medicamentos']].map(([id,label])=>(
+        {[['trends','📈 Tendencias'],['workouts','🏃 Entrenos'],['summary','📊 Resumen'],['goals','🎯 Metas'],['meds','💊 Medicamentos'],['medico','🩺 Médico']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
             style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${tab===id?T.green:T.border}`,background:tab===id?`${T.green}18`:'transparent',color:tab===id?T.green:T.muted,cursor:'pointer',fontSize:12,fontWeight:tab===id?700:400,fontFamily:'inherit',whiteSpace:'nowrap'}}>
             {label}
@@ -481,6 +487,148 @@ const Health = ({data,setData,isMobile,onBack}) => {
           <Btn onClick={saveMetric} style={{width:'100%',justifyContent:'center'}}>Guardar</Btn>
         </div>
       </Modal>}
+      {/* ═══ MÉDICO TAB ═══ */}
+      {tab==='medico'&&(
+        <div>
+          <div style={{display:'flex',gap:6,marginBottom:14}}>
+            <button onClick={()=>setVisitModal(true)} style={{flex:1,padding:'10px 8px',borderRadius:12,border:`1px solid ${T.border}`,background:T.surface2,color:T.muted,cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:600}}>
+              🏥 + Nueva visita
+            </button>
+            <button onClick={()=>setDocModal(true)} style={{flex:1,padding:'10px 8px',borderRadius:12,border:`1px solid ${T.border}`,background:T.surface2,color:T.muted,cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:600}}>
+              📄 + Analítica / doc
+            </button>
+          </div>
+
+          {/* Visit detail */}
+          {visitDetail&&medVisits.find(v=>v.id===visitDetail.id)&&(
+            <div style={{background:T.surface,border:`2px solid ${T.blue}`,borderRadius:16,padding:16,marginBottom:14}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                <div>
+                  <div style={{color:T.text,fontWeight:700,fontSize:15}}>🏥 {visitDetail.reason}</div>
+                  <div style={{display:'flex',gap:10,marginTop:4,flexWrap:'wrap'}}>
+                    <span style={{fontSize:12,color:T.muted}}>📅 {visitDetail.date}</span>
+                    {visitDetail.specialty&&<span style={{fontSize:12,color:T.blue,background:`${T.blue}12`,padding:'1px 8px',borderRadius:6}}>{visitDetail.specialty}</span>}
+                    {visitDetail.doctor&&<span style={{fontSize:12,color:T.muted}}>Dr. {visitDetail.doctor}</span>}
+                    {visitDetail.clinic&&<span style={{fontSize:12,color:T.dim}}>{visitDetail.clinic}</span>}
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:4}}>
+                  <button onClick={()=>delVisit(visitDetail.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',padding:4}}><Icon name="trash" size={14}/></button>
+                </div>
+              </div>
+              {visitDetail.diagnosis&&<div style={{marginBottom:8}}><span style={{fontSize:12,color:T.muted,fontWeight:600}}>Diagnóstico: </span><span style={{fontSize:13,color:T.text}}>{visitDetail.diagnosis}</span></div>}
+              {visitDetail.treatment&&<div style={{marginBottom:8}}><span style={{fontSize:12,color:T.muted,fontWeight:600}}>Tratamiento: </span><span style={{fontSize:13,color:T.text}}>{visitDetail.treatment}</span></div>}
+              {visitDetail.nextVisit&&<div style={{padding:'8px 12px',background:`${T.orange}10`,borderRadius:8,fontSize:12,color:T.orange}}>🔔 Próxima cita: {visitDetail.nextVisit}</div>}
+              {visitDetail.notes&&<p style={{color:T.muted,fontSize:12,margin:'8px 0 0',fontStyle:'italic'}}>{visitDetail.notes}</p>}
+            </div>
+          )}
+
+          {/* Visits by specialty */}
+          {(()=>{
+            const bySpecialty={};
+            medVisits.forEach(v=>{const s=v.specialty||'General';if(!bySpecialty[s])bySpecialty[s]=[];bySpecialty[s].push(v);});
+            return Object.entries(bySpecialty).map(([spec,visits])=>(
+              <div key={spec} style={{marginBottom:14}}>
+                <div style={{fontSize:11,color:T.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>{spec}</div>
+                {visits.map(v=>(
+                  <div key={v.id} onClick={()=>setVisitDetail(visitDetail?.id===v.id?null:v)}
+                    style={{padding:'10px 12px',background:visitDetail?.id===v.id?T.surface2:T.surface,border:`1px solid ${visitDetail?.id===v.id?T.blue:T.border}`,borderRadius:12,marginBottom:6,cursor:'pointer'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div>
+                        <div style={{color:T.text,fontSize:13,fontWeight:600}}>🏥 {v.reason}</div>
+                        <div style={{display:'flex',gap:8,marginTop:3}}>
+                          <span style={{fontSize:11,color:T.muted}}>{v.date}</span>
+                          {v.doctor&&<span style={{fontSize:11,color:T.dim}}>· Dr. {v.doctor}</span>}
+                          {v.cost&&<span style={{fontSize:11,color:T.orange}}>· ${v.cost}</span>}
+                        </div>
+                      </div>
+                      {v.nextVisit&&<span style={{fontSize:10,color:T.orange}}>🔔 {v.nextVisit}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ));
+          })()}
+
+          {medVisits.length===0&&medDocs.length===0&&(
+            <div style={{textAlign:'center',padding:'32px 20px'}}>
+              <div style={{fontSize:40,marginBottom:10}}>🩺</div>
+              <div style={{color:T.muted,fontSize:14,fontWeight:600}}>Sin historial médico</div>
+              <div style={{color:T.dim,fontSize:12,marginTop:4}}>Registra tus visitas y guarda analíticas importantes</div>
+            </div>
+          )}
+
+          {/* Medical documents */}
+          {medDocs.length>0&&(
+            <div>
+              <div style={{fontSize:11,color:T.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>📄 Analíticas y documentos</div>
+              <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                {medDocs.map(d=>(
+                  <div key={d.id} style={{padding:'10px 12px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:12}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                      <div>
+                        <div style={{color:T.text,fontSize:13,fontWeight:600}}>📄 {d.title}</div>
+                        <div style={{display:'flex',gap:8,marginTop:3}}>
+                          {d.date&&<span style={{fontSize:11,color:T.muted}}>{d.date}</span>}
+                          <span style={{fontSize:11,color:T.blue,background:`${T.blue}10`,padding:'1px 6px',borderRadius:5}}>{d.type}</span>
+                          {d.lab&&<span style={{fontSize:11,color:T.dim}}>{d.lab}</span>}
+                        </div>
+                        {d.results&&<div style={{fontSize:12,color:T.muted,marginTop:5}}>{d.results}</div>}
+                      </div>
+                      <button onClick={()=>delDoc(d.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',padding:2}}><Icon name="trash" size={13}/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Visit modal */}
+      {visitModal&&(
+        <Modal title="🏥 Nueva visita médica" onClose={()=>setVisitModal(false)}>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Fecha</div><input type="date" value={vForm.date} onChange={e=>setVForm(f=>({...f,date:e.target.value}))} style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+              <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Especialidad</div><input value={vForm.specialty} onChange={e=>setVForm(f=>({...f,specialty:e.target.value}))} placeholder="Medicina general, Cardiología..." style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Médico / Dr.</div><input value={vForm.doctor} onChange={e=>setVForm(f=>({...f,doctor:e.target.value}))} placeholder="Nombre del doctor" style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+              <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Clínica / Hospital</div><input value={vForm.clinic} onChange={e=>setVForm(f=>({...f,clinic:e.target.value}))} placeholder="Nombre del centro" style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+            </div>
+            <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Motivo de la visita *</div><input value={vForm.reason} onChange={e=>setVForm(f=>({...f,reason:e.target.value}))} placeholder="¿Por qué fuiste?" style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+            <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Diagnóstico</div><input value={vForm.diagnosis} onChange={e=>setVForm(f=>({...f,diagnosis:e.target.value}))} placeholder="¿Qué encontró el médico?" style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+            <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Tratamiento</div><input value={vForm.treatment} onChange={e=>setVForm(f=>({...f,treatment:e.target.value}))} placeholder="Medicación, reposo, cirugía..." style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Próxima cita</div><input type="date" value={vForm.nextVisit} onChange={e=>setVForm(f=>({...f,nextVisit:e.target.value}))} style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+              <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Costo ($)</div><input type="number" value={vForm.cost} onChange={e=>setVForm(f=>({...f,cost:e.target.value}))} placeholder="0" style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+            </div>
+            <button onClick={saveVisit} style={{padding:'11px',borderRadius:12,background:T.accent,border:'none',color:'#000',fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:14}}>🏥 Guardar visita</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Doc modal */}
+      {docModal&&(
+        <Modal title="📄 Nueva analítica / documento" onClose={()=>setDocModal(false)}>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Fecha</div><input type="date" value={dForm.date} onChange={e=>setDForm(f=>({...f,date:e.target.value}))} style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+              <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Tipo</div>
+                <select value={dForm.type} onChange={e=>setDForm(f=>({...f,type:e.target.value}))} style={{width:'100%',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}>
+                  {['analítica','radiografía','ecografía','resonancia','informe','receta','otro'].map(t=><option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+            <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Título *</div><input value={dForm.title} onChange={e=>setDForm(f=>({...f,title:e.target.value}))} placeholder="Ej. Analítica completa enero 2025" style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+            <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Laboratorio / Centro</div><input value={dForm.lab} onChange={e=>setDForm(f=>({...f,lab:e.target.value}))} placeholder="Nombre del laboratorio" style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit'}}/></div>
+            <div><div style={{fontSize:12,color:T.muted,marginBottom:4}}>Resultados / descripción</div><textarea value={dForm.results} onChange={e=>setDForm(f=>({...f,results:e.target.value}))} rows={4} placeholder="Valores, hallazgos, observaciones del médico..." style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'9px 12px',color:T.text,fontSize:13,fontFamily:'inherit',resize:'vertical'}}/></div>
+            <button onClick={saveDoc} style={{padding:'11px',borderRadius:12,background:T.accent,border:'none',color:'#000',fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:14}}>📄 Guardar documento</button>
+          </div>
+        </Modal>
+      )}
+
       {medModal&&<Modal title="Agregar medicamento" onClose={()=>setMedModal(false)}>
         <div style={{display:'flex',flexDirection:'column',gap:12}}>
           <Input value={medForm.name} onChange={v=>setMedForm(f=>({...f,name:v}))} placeholder="Nombre del medicamento"/>

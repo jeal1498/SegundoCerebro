@@ -122,6 +122,59 @@ const Dashboard = ({data,setData,isMobile,onNavigate}) => {
   const h=new Date().getHours();
   const greeting=h<12?'Buenos días':h<18?'Buenas tardes':'Buenas noches';
   const storedName=(()=>{try{return localStorage.getItem('sb_user_name')||'';}catch{return '';}})();
+
+  // ── Pomodoro state ──────────────────────────────────────
+  const [pomodoroOpen,setPomodoroOpen]   = useState(false);
+  const [pomPhase,setPomPhase]           = useState('work'); // 'work'|'break'|'longbreak'
+  const [pomSeconds,setPomSeconds]       = useState(25*60);
+  const [pomRunning,setPomRunning]       = useState(false);
+  const [pomSessions,setPomSessions]     = useState(0);
+  const [pomEnergy,setPomEnergy]         = useState('normal');
+  const [pomTask,setPomTask]             = useState('');
+  const pomTimerRef                      = useRef(null);
+  const POM_DURATIONS = { work: 25*60, break: 5*60, longbreak: 15*60 };
+  const POM_ENERGIES  = [
+    {id:'high',   label:'Alta energía',  emoji:'⚡', color:'#f59e0b'},
+    {id:'normal', label:'Normal',        emoji:'🎯', color:T.accent},
+    {id:'low',    label:'Baja energía',  emoji:'🌊', color:T.blue},
+  ];
+  const pomCfg = pomPhase==='work'
+    ? {label:'Enfoque',color:T.accent,emoji:'🍅'}
+    : pomPhase==='break'
+      ? {label:'Descanso',color:T.green,emoji:'☕'}
+      : {label:'Descanso largo',color:T.purple,emoji:'🛋️'};
+
+  useEffect(()=>{
+    if(pomRunning){
+      pomTimerRef.current=setInterval(()=>{
+        setPomSeconds(s=>{
+          if(s<=1){
+            clearInterval(pomTimerRef.current);
+            setPomRunning(false);
+            if(pomPhase==='work'){
+              const next=pomSessions+1;
+              setPomSessions(next);
+              try{localStorage.setItem('sb_pom_sessions',String(next));}catch(e){}
+              setPomPhase(next%4===0?'longbreak':'break');
+              setPomSeconds(next%4===0?POM_DURATIONS.longbreak:POM_DURATIONS.break);
+            } else {
+              setPomPhase('work');
+              setPomSeconds(POM_DURATIONS.work);
+            }
+            return 0;
+          }
+          return s-1;
+        });
+      },1000);
+    } else {
+      clearInterval(pomTimerRef.current);
+    }
+    return ()=>clearInterval(pomTimerRef.current);
+  },[pomRunning,pomPhase,pomSessions]);
+
+  const pomReset=()=>{clearInterval(pomTimerRef.current);setPomRunning(false);setPomSeconds(POM_DURATIONS[pomPhase]);};
+  const pomFormatTime=(s)=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  const pomProgress=1-(pomSeconds/POM_DURATIONS[pomPhase]);
   const [toast,setToast]       = useState(null);
   const [projExpanded,setProjExpanded] = useState(null);
   const [addingTask,setAddingTask]     = useState(false);
@@ -598,10 +651,85 @@ const Dashboard = ({data,setData,isMobile,onNavigate}) => {
         </div>
       </div>
     ),
+    pomodoro: (
+      <div key="pomodoro" style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:18,padding:16,marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:pomodoroOpen?14:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:16}}>🍅</span>
+            <span style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5,color:T.muted}}>Pomodoro</span>
+            {pomSessions>0&&<span style={{fontSize:10,background:`${T.accent}20`,color:T.accent,padding:'2px 7px',borderRadius:8,fontWeight:600}}>{pomSessions} sesiones</span>}
+          </div>
+          <button onClick={()=>setPomodoroOpen(o=>!o)} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.muted,fontSize:12,fontFamily:'inherit'}}>
+            {pomodoroOpen?'▲ Cerrar':'▼ Abrir'}
+          </button>
+        </div>
+        {pomodoroOpen&&(
+          <div>
+            {/* Energy selector */}
+            <div style={{display:'flex',gap:6,marginBottom:14}}>
+              {POM_ENERGIES.map(e=>(
+                <button key={e.id} onClick={()=>setPomEnergy(e.id)}
+                  style={{flex:1,padding:'7px 6px',borderRadius:10,border:`1px solid ${pomEnergy===e.id?e.color:T.border}`,background:pomEnergy===e.id?`${e.color}18`:'transparent',cursor:'pointer',fontFamily:'inherit',fontSize:11,color:pomEnergy===e.id?e.color:T.muted,fontWeight:pomEnergy===e.id?700:400,textAlign:'center'}}>
+                  {e.emoji}<br/><span style={{fontSize:10}}>{e.label}</span>
+                </button>
+              ))}
+            </div>
+            {/* Task label */}
+            <input value={pomTask} onChange={e=>setPomTask(e.target.value)} placeholder="¿En qué te vas a enfocar?"
+              style={{width:'100%',boxSizing:'border-box',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,padding:'8px 12px',color:T.text,fontSize:13,fontFamily:'inherit',marginBottom:14}}/>
+            {/* Phase tabs */}
+            <div style={{display:'flex',gap:6,marginBottom:16}}>
+              {[['work','🍅 Enfoque'],['break','☕ Descanso'],['longbreak','🛋️ Largo']].map(([p,l])=>(
+                <button key={p} onClick={()=>{if(!pomRunning){setPomPhase(p);setPomSeconds(POM_DURATIONS[p]);}}}
+                  style={{flex:1,padding:'6px 4px',borderRadius:8,border:`1px solid ${pomPhase===p?pomCfg.color:T.border}`,background:pomPhase===p?`${pomCfg.color}15`:'transparent',color:pomPhase===p?pomCfg.color:T.muted,cursor:pomRunning?'not-allowed':'pointer',fontSize:11,fontFamily:'inherit'}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            {/* Timer circle */}
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',marginBottom:16}}>
+              <div style={{position:'relative',width:140,height:140}}>
+                <svg width={140} height={140} style={{position:'absolute',top:0,left:0,transform:'rotate(-90deg)'}}>
+                  <circle cx={70} cy={70} r={60} fill="none" stroke={T.border} strokeWidth={6}/>
+                  <circle cx={70} cy={70} r={60} fill="none" stroke={pomCfg.color} strokeWidth={6}
+                    strokeDasharray={`${2*Math.PI*60}`}
+                    strokeDashoffset={`${2*Math.PI*60*(1-pomProgress)}`}
+                    strokeLinecap="round"
+                    style={{transition:'stroke-dashoffset 0.9s linear'}}/>
+                </svg>
+                <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+                  <div style={{fontSize:28,fontWeight:800,color:pomCfg.color,fontVariantNumeric:'tabular-nums',letterSpacing:-1}}>
+                    {pomFormatTime(pomSeconds)}
+                  </div>
+                  <div style={{fontSize:10,color:T.muted,marginTop:2,fontWeight:600}}>{pomCfg.label}</div>
+                </div>
+              </div>
+            </div>
+            {/* Controls */}
+            <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+              <button onClick={()=>setPomRunning(r=>!r)}
+                style={{padding:'10px 28px',borderRadius:12,background:pomCfg.color,border:'none',color:'#000',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit',minWidth:100}}>
+                {pomRunning?'⏸ Pausa':'▶ Iniciar'}
+              </button>
+              <button onClick={pomReset}
+                style={{padding:'10px 16px',borderRadius:12,background:'transparent',border:`1px solid ${T.border}`,color:T.muted,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+                ↺
+              </button>
+            </div>
+            {pomSessions>0&&(
+              <div style={{textAlign:'center',marginTop:12,fontSize:11,color:T.muted}}>
+                🍅 {pomSessions} pomodoro{pomSessions!==1?'s':''} hoy
+                {pomTask&&<span style={{color:T.dim}}> · {pomTask}</span>}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    ),
   };
 
   // Widget order based on challenge profile
-  const widgetOrder = profile ? profile.order : ['capture','kpi','projects','tasks','habits','inbox','pillars'];
+  const widgetOrder = profile ? profile.order : ['capture','kpi','pomodoro','tasks','habits','inbox','pillars'];
 
   return (
     <div>
