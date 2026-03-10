@@ -758,16 +758,22 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
         );
         if(res.status===429){
+          const err=await res.json().catch(()=>({}));
+          const emsg=(err?.error?.message||'').toLowerCase();
+          // Quota exhausted → try next model immediately
+          if(emsg.includes('quota')||emsg.includes('exhausted')||emsg.includes('resource_exhausted')){
+            if(modelIdx<GEMINI_MODELS.length-1) return callApi(modelIdx+1, 0);
+            throw new Error('Cuota diaria agotada en todos los modelos Gemini. Intenta mañana o crea una nueva API Key en Google AI Studio.');
+          }
+          // Rate limit → retry with backoff on same model
           if(attempt<2){
             const wait=[8000,20000][attempt];
             await new Promise(r=>setTimeout(r,wait));
             return callApi(modelIdx, attempt+1);
           }
-          const err=await res.json().catch(()=>({}));
-          const emsg=err?.error?.message||'';
-          if(emsg.toLowerCase().includes('quota')||emsg.toLowerCase().includes('exhausted'))
-            throw new Error(`Límite diario alcanzado para ${model}. Verifica tu cuota en Google AI Studio.`);
-          throw new Error('Demasiadas solicitudes. Espera un momento e intenta de nuevo.');
+          // Rate limit exhausted → try next model
+          if(modelIdx<GEMINI_MODELS.length-1) return callApi(modelIdx+1, 0);
+          throw new Error('Demasiadas solicitudes. Espera unos minutos e intenta de nuevo.');
         }
         if(res.status===404||res.status===400){
           const err=await res.json().catch(()=>({}));
