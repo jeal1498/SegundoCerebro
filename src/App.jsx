@@ -27,23 +27,24 @@ const Finance          = lazy(() => import('./modules/Finance.jsx'));
 const Health           = lazy(() => import('./modules/Health.jsx'));
 const Relaciones       = lazy(() => import('./modules/Relaciones.jsx'));
 const SideProjects     = lazy(() => import('./modules/SideProjects.jsx'));
+const TrabajoEmbed     = lazy(() => import('./modules/TrabajoEmbed.jsx'));
 const DesarrolloPersonal = lazy(() => import('./modules/DesarrolloPersonal.jsx'));
 const Hogar            = lazy(() => import('./modules/Hogar.jsx'));
 const Vehiculos        = lazy(() => import('./modules/Vehiculos.jsx'));
 const Settings         = lazy(() => import('./modules/Settings.jsx'));
 const GlobalSearch     = lazy(() => import('./modules/GlobalSearch.jsx'));
 const Psicke           = lazy(() => import('./modules/Psicke.jsx'));
-const Nutricion        = lazy(() => import('./modules/Nutricion.jsx'));
-const Sueno            = lazy(() => import('./modules/Sueno.jsx'));
+const Onboarding       = lazy(() => import('./modules/Onboarding.jsx'));
 const Entretenimiento  = lazy(() => import('./modules/Entretenimiento.jsx'));
 const Mascotas         = lazy(() => import('./modules/Mascotas.jsx'));
 const Viajes           = lazy(() => import('./modules/Viajes.jsx'));
+const Nutricion        = lazy(() => import('./modules/Nutricion.jsx'));
+const Sueno            = lazy(() => import('./modules/Sueno.jsx'));
 
 // ── Storage helpers (re-export pattern for App-level use) ──
 import { save, load } from './storage/index.js';
 import { uid, today } from './utils/helpers.js';
 import { initData } from './context/initialData.js';
-import { registerNotificationSW, checkOnFocus } from './utils/notifications.js';
 
 function App() {
   const [view, setView]               = useState('dashboard');
@@ -53,7 +54,7 @@ function App() {
   const [welcomePsicke, setWelcomePsicke] = useState(null);
   const [showSearch, setShowSearch]   = useState(false);
   const [apiKey, setApiKey]           = useState(() => { try { return localStorage.getItem('sb_gemini_key') || ''; } catch { return ''; } });
-  const [isFirstTime] = useState(() => { try { return !localStorage.getItem('sb_user_name'); } catch { return true; } });
+  const [showOnboarding, setShowOnboarding] = useState(() => { try { return !localStorage.getItem('sb_onboarding_done'); } catch { return true; } });
   const [transitioning, setTransitioning] = useState(false);
   const [isOnline, setIsOnline]       = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isDark, setIsDarkState]      = useState(() => {
@@ -122,15 +123,6 @@ function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // ── Registrar SW de notificaciones ──
-  useEffect(() => {
-    registerNotificationSW().catch(() => {});
-    // Verificar notificaciones vencidas al abrir la app
-    const onVisible = () => { if (!document.hidden) checkOnFocus().catch(()=>{}); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, []);
-
   const triggerInstall = useCallback(async () => {
     if (!installPrompt) return;
     installPrompt.prompt();
@@ -162,139 +154,26 @@ function App() {
       const loaded = await Promise.all(keys.map(k => load(k, def[k])));
       const result = {};
       keys.forEach((k, i) => { result[k] = loaded[i]; });
-
-      // ── Inyectar objetivo tutorial si no existe ──
-      const TUTORIAL_OBJ_ID = 'sb_tutorial_obj';
-      if (!result.objectives.find(o => o.id === TUTORIAL_OBJ_ID)) {
-        const todayStr = today();
-        const tutObj = {
-          id: TUTORIAL_OBJ_ID,
-          title: '🎓 Aprender Segundo Cerebro',
-          areaId: '', deadline: '2026-12-31', status: 'active',
-          milestones: [], notes: 'Completa estas acciones para dominar tu sistema personal.'
-        };
-        const tutTasks = [
-          { id:'tut_1', title:'📥 Captura algo en el Inbox',       status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Inbox → toca + y escribe cualquier idea o pendiente.' },
-          { id:'tut_2', title:'📝 Crea tu primera nota',           status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Notas → Nueva nota → guarda con cualquier contenido.' },
-          { id:'tut_3', title:'✅ Completa un hábito hoy',         status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Salud → Hábitos → marca uno como completado hoy.' },
-          { id:'tut_4', title:'📁 Crea un proyecto',               status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Tareas → Proyectos → crea un nuevo proyecto.' },
-          { id:'tut_5', title:'💸 Registra un gasto',              status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Finanzas → Nueva transacción → registra cualquier gasto.' },
-          { id:'tut_6', title:'📔 Escribe en tu diario',           status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Inicio → Diario → escribe tu primera entrada.' },
-          { id:'tut_7', title:'🎯 Crea un objetivo propio',        status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Objetivos → Nuevo objetivo → algo que quieras lograr.' },
-          { id:'tut_8', title:'🧠 Envía un mensaje a Psicke',      status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Toca el botón de Psicke en la barra inferior y escríbele algo.' },
-        ];
-        result.objectives = [...result.objectives, tutObj];
-        result.tasks = [...result.tasks, ...tutTasks];
-        save('objectives', result.objectives);
-        save('tasks', result.tasks);
-      }
-
       setData(result);
-      // ── Primer arranque: abrir Psicke automáticamente ──
-      const isFirst = (() => { try { return !localStorage.getItem('sb_user_name'); } catch { return true; } })();
-      if (isFirst) setTimeout(() => setPsickeOpen(true), 800);
     })();
   }, []);
 
-  // ── Auto-completar tareas del tutorial ──
-  useEffect(() => {
-    if (!data) return;
-    const TUTORIAL_OBJ_ID = 'sb_tutorial_obj';
-    const tutTasks = data.tasks.filter(t => t.objectiveId === TUTORIAL_OBJ_ID && t.status !== 'done');
-    if (tutTasks.length === 0) return;
-
-    const psickeUsed = (() => { try { return localStorage.getItem('sb_psicke_used') === '1'; } catch { return false; } })();
-
-    const checks = {
-      tut_1: data.inbox.length > 1,
-      tut_2: data.notes.length > 1,
-      tut_3: data.habits.some(h => h.completions && h.completions.length > 0),
-      tut_4: data.projects.length > 0,
-      tut_5: data.transactions.length > 0,
-      tut_6: data.journal.length > 0,
-      tut_7: data.objectives.filter(o => o.id !== TUTORIAL_OBJ_ID).length > 1,
-      tut_8: psickeUsed,
-    };
-
-    const toComplete = tutTasks.filter(t => checks[t.id]);
-    if (toComplete.length === 0) return;
-
-    const labels = {
-      tut_1: '¡Inbox capturado!', tut_2: '¡Primera nota creada!',
-      tut_3: '¡Hábito completado!', tut_4: '¡Primer proyecto creado!',
-      tut_5: '¡Gasto registrado!', tut_6: '¡Diario iniciado!',
-      tut_7: '¡Objetivo creado!', tut_8: '¡Psicke activado!',
-    };
-
-    const updated = data.tasks.map(t =>
-      toComplete.find(tc => tc.id === t.id) ? { ...t, status: 'done' } : t
-    );
-
-    toComplete.forEach(t => toast.success(`🎓 ${labels[t.id] || 'Tarea completada'} +1 en tu objetivo tutorial`));
-
-    // ¿Completaste todo?
-    const allDone = updated.filter(t => t.objectiveId === TUTORIAL_OBJ_ID).every(t => t.status === 'done');
-    if (allDone) {
-      const updatedObjs = data.objectives.map(o =>
-        o.id === TUTORIAL_OBJ_ID ? { ...o, status: 'completed' } : o
-      );
-      setTimeout(() => toast.success('🏆 ¡Dominaste el Segundo Cerebro! Objetivo completado al 100%'), 800);
-      setData(d => ({ ...d, tasks: updated, objectives: updatedObjs }));
-      save('tasks', updated);
-      save('objectives', updatedObjs);
-    } else {
-      setData(d => ({ ...d, tasks: updated }));
-      save('tasks', updated);
-    }
-  }, [data?.inbox?.length, data?.notes?.length, data?.habits, data?.projects?.length,
-      data?.transactions?.length, data?.journal?.length, data?.objectives?.length,
-      data?.tasks]);
-
   // ── Navigation ──
-  const goToView = useCallback((v, hint = null) => {
+  const navigate = (v, hint = null) => {
+    if (v === view) { setViewHint(hint); return; }
     setTransitioning(true);
     setTimeout(() => { setView(v); setViewHint(hint); setTransitioning(false); }, 120);
-  }, []);
-
-  const navigate = (v, hint = null) => {
-    if (v === 'trabajo') { window.open('https://jeal1498.github.io/AppWeb-ControlCheck/index.html','_blank','noopener,noreferrer'); return; }
-    if (v === view) { setViewHint(hint); return; }
-    history.pushState({ view: v, hint }, '', null);
-    goToView(v, hint);
   };
   const navTo = (v) => {
     if (v === view) return;
-    history.pushState({ view: v, hint: null }, '', null);
-    goToView(v, null);
+    setTransitioning(true);
+    setTimeout(() => { setView(v); setViewHint(null); setTransitioning(false); }, 120);
   };
   const consumeHint = useCallback(() => setViewHint(null), []);
   const backToDashboard = useCallback(() => {
-    history.pushState({ view: 'dashboard', hint: null }, '', null);
-    goToView('dashboard', null);
-  }, [goToView]);
-
-  // ── Android/iOS back button — intercept popstate ──
-  useEffect(() => {
-    // replaceState sella la entrada nativa + pushState añade un buffer extra
-    // así siempre hay al menos 2 entradas propias antes de poder salir
-    history.replaceState({ view: 'dashboard', hint: null }, '', null);
-    history.pushState({ view: 'dashboard', hint: null }, '', null);
-
-    const onPop = (e) => {
-      const state = e.state;
-      if (state && state.view) {
-        goToView(state.view, state.hint || null);
-      }
-      // Si state es null llegamos al fondo — re-insertar buffer y quedarnos
-      if (!state || !state.view) {
-        history.pushState({ view: 'dashboard', hint: null }, '', null);
-        history.pushState({ view: 'dashboard', hint: null }, '', null);
-        goToView('dashboard', null);
-      }
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, [goToView]);
+    setTransitioning(true);
+    setTimeout(() => { setView('dashboard'); setViewHint(null); setTransitioning(false); }, 120);
+  }, []);
 
   if (!data) return <AppLoader />;
 
@@ -320,14 +199,15 @@ function App() {
       case 'health':       return <Health {...props} onBack={backToDashboard} />;
       case 'relaciones':   return <Relaciones {...props} onBack={backToDashboard} />;
       case 'sideprojects': return <SideProjects {...props} onBack={backToDashboard} />;
+      case 'trabajo':      return <TrabajoEmbed isMobile={isMobile} onBack={backToDashboard} />;
       case 'desarrollo':   return <DesarrolloPersonal {...props} onBack={backToDashboard} />;
       case 'hogar':        return <Hogar {...props} onBack={backToDashboard} />;
       case 'coche':        return <Vehiculos {...props} onBack={backToDashboard} />;
-      case 'nutricion':       return <Nutricion {...props} />;
-      case 'sueno':           return <Sueno {...props} />;
-      case 'entretenimiento': return <Entretenimiento {...props} />;
-      case 'mascotas':       return <Mascotas {...props} />;
-      case 'viajes':         return <Viajes {...props} />;
+      case 'entretenimiento': return <Entretenimiento {...props} onBack={backToDashboard} />;
+      case 'mascotas':     return <Mascotas {...props} onBack={backToDashboard} />;
+      case 'viajes':       return <Viajes {...props} onBack={backToDashboard} />;
+      case 'nutricion':    return <Nutricion {...props} onBack={backToDashboard} />;
+      case 'sueno':        return <Sueno {...props} onBack={backToDashboard} />;
       case 'settings':     return (
         <Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile} data={data} setData={setData}
           viewHint={viewHint} onConsumeHint={consumeHint}
@@ -476,8 +356,46 @@ function App() {
           welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}/>
       </Suspense>
 
+      {/* ── Onboarding ── */}
+      <Suspense fallback={null}>
+        {showOnboarding && (
+          <Onboarding onDone={(seedData, userName, chosenAreas) => {
+            try { localStorage.setItem('sb_onboarding_done', '1'); } catch {}
+            if (userName) try { localStorage.setItem('sb_user_name', userName); } catch {}
+            try {
+              const prog = JSON.parse(localStorage.getItem('sb_onboarding_progress') || '{}');
+              if (prog.challenge) localStorage.setItem('sb_challenge', prog.challenge);
+            } catch {}
+            // Seed data into app state
+            if (data) {
+              const todayStr = today();
+              const yr = new Date().getFullYear();
+              const areas = data.areas || [];
+              const findArea = (keyword) => areas.find(a => a.name.toLowerCase().includes(keyword.toLowerCase()));
+              const newData = { ...data };
+              const push = (key, item) => { newData[key] = [...(newData[key] || []), item]; };
+              if (seedData.trabajo_proyecto) push('projects', { id: uid(), title: seedData.trabajo_proyecto, areaId: findArea('trabajo')?.id || '', status: 'active', createdAt: todayStr, description: '', emoji: '💼' });
+              if (seedData.trabajo_next) push('tasks', { id: uid(), title: seedData.trabajo_next, status: 'todo', priority: 'alta', projectId: '', createdAt: todayStr, dueDate: todayStr, subtasks: [], notes: '', objectiveId: '' });
+              if (seedData.salud_habit) push('habits', { id: uid(), name: seedData.salud_habit, frequency: 'daily', completions: [], color: '', emoji: '💪' });
+              if (seedData.salud_objetivo) push('objectives', { id: uid(), title: seedData.salud_objetivo, areaId: findArea('salud')?.id || '', deadline: `${yr}-12-31`, status: 'active', milestones: [], notes: '' });
+              if (seedData.finanzas_meta) push('objectives', { id: uid(), title: seedData.finanzas_meta, areaId: findArea('finanzas')?.id || '', deadline: `${yr}-12-31`, status: 'active', milestones: [], notes: '' });
+              if (seedData.finanzas_pendiente) push('inbox', { id: uid(), content: seedData.finanzas_pendiente, createdAt: todayStr, processed: false });
+              if (seedData.hogar_pendiente) push('maintenances', { id: uid(), name: seedData.hogar_pendiente, category: 'General', lastDone: null, nextDue: null, notes: '', recurrence: '' });
+              if (seedData.relaciones_persona) push('people', { id: uid(), name: seedData.relaciones_persona, relation: '', birthday: '', phone: '', email: '', emoji: '👤', notes: '', tags: [] });
+              if (seedData.desarrollo_aprender) push('objectives', { id: uid(), title: `Aprender: ${seedData.desarrollo_aprender}`, areaId: findArea('desarrollo')?.id || '', deadline: `${yr}-12-31`, status: 'active', milestones: [], notes: '' });
+              if (seedData.desarrollo_leer) push('books', { id: uid(), title: seedData.desarrollo_leer, author: '', status: 'want', rating: 0, createdAt: todayStr, notes: '', genre: '', pages: 0 });
+              if (seedData.sideproj_nombre) push('sideProjects', { id: uid(), name: seedData.sideproj_nombre, description: '', stack: '', status: seedData.sideproj_estado || 'idea', url: '', createdAt: todayStr, emoji: '🚀' });
+              setData(newData);
+              // Persist all keys
+              Object.keys(newData).forEach(k => { try { localStorage.setItem(k, JSON.stringify(newData[k])); } catch {} });
+            }
+            setShowOnboarding(false);
+            setTimeout(() => setWelcomePsicke({ userName, areas: chosenAreas }), 800);
+          }}/>
+        )}
+      </Suspense>
 
-            {/* ── PWA Install Banner ── */}
+      {/* ── PWA Install Banner ── */}
       {showInstallBanner && !isInstalled && (
         <div style={{ position:'fixed',bottom:isMobile?72:24,left:'50%',transform:'translateX(-50%)',zIndex:9998,width:'calc(100% - 32px)',maxWidth:380,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:'14px 16px',boxShadow:'0 8px 32px rgba(0,0,0,0.35)',display:'flex',alignItems:'center',gap:12,animation:'sbSlideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
           <div style={{ width:38,height:38,borderRadius:10,background:`linear-gradient(135deg,${T.accent}22,${T.blue}22)`,border:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0 }}>🧠</div>
