@@ -223,11 +223,11 @@ function App() {
       display: 'flex', flexDirection: isMobile ? 'column' : 'row',
       height: '100dvh', width: '100%',
       background: T.bg,
-      fontFamily: "'DM Sans',system-ui,sans-serif",
+      fontFamily: "'Plus Jakarta Sans',system-ui,sans-serif",
       color: T.text, overflow: 'hidden', position: 'fixed', inset: 0,
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;700&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap');
         html,body,#root{margin:0;padding:0;width:100%;height:100%;background:${T.bg};}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
         *:focus-visible{outline:2px solid ${T.accent};outline-offset:2px;border-radius:4px;}
@@ -254,8 +254,8 @@ function App() {
             <div style={{ display:'flex',alignItems:'center',gap:10 }}>
               <div style={{ width:34,height:34,background:`linear-gradient(135deg,${T.accent},${T.orange})`,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20 }}>🧠</div>
               <div>
-                <div style={{ fontFamily:"'Playfair Display',serif",fontSize:14,fontWeight:700,color:T.text,lineHeight:1 }}>Segundo</div>
-                <div style={{ fontFamily:"'Playfair Display',serif",fontSize:14,fontWeight:700,color:T.accent,lineHeight:1 }}>Cerebro</div>
+                <div style={{ fontFamily:"'Sora',sans-serif",fontSize:14,fontWeight:800,color:T.text,lineHeight:1 }}>Segundo</div>
+                <div style={{ fontFamily:"'Sora',sans-serif",fontSize:14,fontWeight:800,color:T.accent,lineHeight:1 }}>Cerebro</div>
               </div>
             </div>
           </div>
@@ -292,9 +292,9 @@ function App() {
 
       {/* ── Mobile top bar ── */}
       {isMobile && (
-        <div style={{ background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+        <div style={{ background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'8px 16px',minHeight:58,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
           <div style={{ display:'flex',alignItems:'center',gap:8 }}>
-            <span style={{ fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:T.text }}>
+            <span style={{ fontFamily:"'Sora',sans-serif",fontSize:15,fontWeight:800,color:T.text }}>
               Segundo <span style={{ color:T.accent }}>Cerebro</span>
             </span>
           </div>
