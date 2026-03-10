@@ -153,22 +153,46 @@ function App() {
   }, []);
 
   // ── Navigation ──
+  const goToView = useCallback((v, hint = null) => {
+    setTransitioning(true);
+    setTimeout(() => { setView(v); setViewHint(hint); setTransitioning(false); }, 120);
+  }, []);
+
   const navigate = (v, hint = null) => {
     if (v === 'trabajo') { window.open('https://jeal1498.github.io/AppWeb-ControlCheck/index.html','_blank','noopener,noreferrer'); return; }
     if (v === view) { setViewHint(hint); return; }
-    setTransitioning(true);
-    setTimeout(() => { setView(v); setViewHint(hint); setTransitioning(false); }, 120);
+    history.pushState({ view: v, hint }, '', null);
+    goToView(v, hint);
   };
   const navTo = (v) => {
     if (v === view) return;
-    setTransitioning(true);
-    setTimeout(() => { setView(v); setViewHint(null); setTransitioning(false); }, 120);
+    history.pushState({ view: v, hint: null }, '', null);
+    goToView(v, null);
   };
   const consumeHint = useCallback(() => setViewHint(null), []);
   const backToDashboard = useCallback(() => {
-    setTransitioning(true);
-    setTimeout(() => { setView('dashboard'); setViewHint(null); setTransitioning(false); }, 120);
-  }, []);
+    history.pushState({ view: 'dashboard', hint: null }, '', null);
+    goToView('dashboard', null);
+  }, [goToView]);
+
+  // ── Android/iOS back button — intercept popstate ──
+  useEffect(() => {
+    // Seed initial history state so first back has somewhere to go
+    history.replaceState({ view: 'dashboard', hint: null }, '', null);
+
+    const onPop = (e) => {
+      const state = e.state;
+      if (state && state.view) {
+        goToView(state.view, state.hint || null);
+      } else {
+        // No more internal history — push a new dashboard state to prevent exit
+        history.pushState({ view: 'dashboard', hint: null }, '', null);
+        goToView('dashboard', null);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [goToView]);
 
   if (!data) return <AppLoader />;
 
