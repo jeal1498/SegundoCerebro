@@ -33,12 +33,12 @@ const Vehiculos        = lazy(() => import('./modules/Vehiculos.jsx'));
 const Settings         = lazy(() => import('./modules/Settings.jsx'));
 const GlobalSearch     = lazy(() => import('./modules/GlobalSearch.jsx'));
 const Psicke           = lazy(() => import('./modules/Psicke.jsx'));
-const Onboarding       = lazy(() => import('./modules/Onboarding.jsx'));
 
 // ── Storage helpers (re-export pattern for App-level use) ──
 import { save, load } from './storage/index.js';
 import { uid, today } from './utils/helpers.js';
 import { initData } from './context/initialData.js';
+import { registerNotificationSW, checkOnFocus } from './utils/notifications.js';
 
 function App() {
   const [view, setView]               = useState('dashboard');
@@ -48,7 +48,7 @@ function App() {
   const [welcomePsicke, setWelcomePsicke] = useState(null);
   const [showSearch, setShowSearch]   = useState(false);
   const [apiKey, setApiKey]           = useState(() => { try { return localStorage.getItem('sb_gemini_key') || ''; } catch { return ''; } });
-  const [showOnboarding, setShowOnboarding] = useState(() => { try { return !localStorage.getItem('sb_onboarding_done'); } catch { return true; } });
+  const [isFirstTime] = useState(() => { try { return !localStorage.getItem('sb_user_name'); } catch { return true; } });
   const [transitioning, setTransitioning] = useState(false);
   const [isOnline, setIsOnline]       = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isDark, setIsDarkState]      = useState(() => {
@@ -117,6 +117,15 @@ function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  // ── Registrar SW de notificaciones ──
+  useEffect(() => {
+    registerNotificationSW().catch(() => {});
+    // Verificar notificaciones vencidas al abrir la app
+    const onVisible = () => { if (!document.hidden) checkOnFocus().catch(()=>{}); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   const triggerInstall = useCallback(async () => {
     if (!installPrompt) return;
     installPrompt.prompt();
@@ -176,6 +185,9 @@ function App() {
       }
 
       setData(result);
+      // ── Primer arranque: abrir Psicke automáticamente ──
+      const isFirst = (() => { try { return !localStorage.getItem('sb_user_name'); } catch { return true; } })();
+      if (isFirst) setTimeout(() => setPsickeOpen(true), 800);
     })();
   }, []);
 
@@ -454,46 +466,8 @@ function App() {
           welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}/>
       </Suspense>
 
-      {/* ── Onboarding ── */}
-      <Suspense fallback={null}>
-        {showOnboarding && (
-          <Onboarding onDone={(seedData, userName, chosenAreas) => {
-            try { localStorage.setItem('sb_onboarding_done', '1'); } catch {}
-            if (userName) try { localStorage.setItem('sb_user_name', userName); } catch {}
-            try {
-              const prog = JSON.parse(localStorage.getItem('sb_onboarding_progress') || '{}');
-              if (prog.challenge) localStorage.setItem('sb_challenge', prog.challenge);
-            } catch {}
-            // Seed data into app state
-            if (data) {
-              const todayStr = today();
-              const yr = new Date().getFullYear();
-              const areas = data.areas || [];
-              const findArea = (keyword) => areas.find(a => a.name.toLowerCase().includes(keyword.toLowerCase()));
-              const newData = { ...data };
-              const push = (key, item) => { newData[key] = [...(newData[key] || []), item]; };
-              if (seedData.trabajo_proyecto) push('projects', { id: uid(), title: seedData.trabajo_proyecto, areaId: findArea('trabajo')?.id || '', status: 'active', createdAt: todayStr, description: '', emoji: '💼' });
-              if (seedData.trabajo_next) push('tasks', { id: uid(), title: seedData.trabajo_next, status: 'todo', priority: 'alta', projectId: '', createdAt: todayStr, dueDate: todayStr, subtasks: [], notes: '', objectiveId: '' });
-              if (seedData.salud_habit) push('habits', { id: uid(), name: seedData.salud_habit, frequency: 'daily', completions: [], color: '', emoji: '💪' });
-              if (seedData.salud_objetivo) push('objectives', { id: uid(), title: seedData.salud_objetivo, areaId: findArea('salud')?.id || '', deadline: `${yr}-12-31`, status: 'active', milestones: [], notes: '' });
-              if (seedData.finanzas_meta) push('objectives', { id: uid(), title: seedData.finanzas_meta, areaId: findArea('finanzas')?.id || '', deadline: `${yr}-12-31`, status: 'active', milestones: [], notes: '' });
-              if (seedData.finanzas_pendiente) push('inbox', { id: uid(), content: seedData.finanzas_pendiente, createdAt: todayStr, processed: false });
-              if (seedData.hogar_pendiente) push('maintenances', { id: uid(), name: seedData.hogar_pendiente, category: 'General', lastDone: null, nextDue: null, notes: '', recurrence: '' });
-              if (seedData.relaciones_persona) push('people', { id: uid(), name: seedData.relaciones_persona, relation: '', birthday: '', phone: '', email: '', emoji: '👤', notes: '', tags: [] });
-              if (seedData.desarrollo_aprender) push('objectives', { id: uid(), title: `Aprender: ${seedData.desarrollo_aprender}`, areaId: findArea('desarrollo')?.id || '', deadline: `${yr}-12-31`, status: 'active', milestones: [], notes: '' });
-              if (seedData.desarrollo_leer) push('books', { id: uid(), title: seedData.desarrollo_leer, author: '', status: 'want', rating: 0, createdAt: todayStr, notes: '', genre: '', pages: 0 });
-              if (seedData.sideproj_nombre) push('sideProjects', { id: uid(), name: seedData.sideproj_nombre, description: '', stack: '', status: seedData.sideproj_estado || 'idea', url: '', createdAt: todayStr, emoji: '🚀' });
-              setData(newData);
-              // Persist all keys
-              Object.keys(newData).forEach(k => { try { localStorage.setItem(k, JSON.stringify(newData[k])); } catch {} });
-            }
-            setShowOnboarding(false);
-            setTimeout(() => setWelcomePsicke({ userName, areas: chosenAreas }), 800);
-          }}/>
-        )}
-      </Suspense>
 
-      {/* ── PWA Install Banner ── */}
+            {/* ── PWA Install Banner ── */}
       {showInstallBanner && !isInstalled && (
         <div style={{ position:'fixed',bottom:isMobile?72:24,left:'50%',transform:'translateX(-50%)',zIndex:9998,width:'calc(100% - 32px)',maxWidth:380,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:'14px 16px',boxShadow:'0 8px 32px rgba(0,0,0,0.35)',display:'flex',alignItems:'center',gap:12,animation:'sbSlideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
           <div style={{ width:38,height:38,borderRadius:10,background:`linear-gradient(135deg,${T.accent}22,${T.blue}22)`,border:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0 }}>🧠</div>
