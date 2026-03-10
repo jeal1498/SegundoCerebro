@@ -5,7 +5,17 @@ import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
-import { OB_AREAS } from './Onboarding.jsx';
+
+const OB_AREAS = [
+  {id:'salud',      label:'Salud',        emoji:'💪'},
+  {id:'finanzas',   label:'Finanzas',     emoji:'💰'},
+  {id:'trabajo',    label:'Trabajo',      emoji:'💼'},
+  {id:'relaciones', label:'Relaciones',   emoji:'❤️'},
+  {id:'hogar',      label:'Hogar',        emoji:'🏠'},
+  {id:'educacion',  label:'Educación',    emoji:'📚'},
+  {id:'ocio',       label:'Ocio',         emoji:'🎮'},
+  {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
+];
 
 const GEMINI_MODEL = 'gemini-2.0-flash';
 
