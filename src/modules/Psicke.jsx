@@ -552,6 +552,23 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   const [open,setOpen]=useState(false);
   const [pendingRoadmap,setPendingRoadmap]=useState(null); // roadmap awaiting confirmation
   const [firstRun,setFirstRun]=useState(false); // primera vez sin nombre guardado
+  // ── All state/refs declared here to avoid TDZ in useEffect deps ────
+  const [showSugg,setShowSugg]=useState(true);
+  const [msgs,setMsgs]=useState([INIT_MSG]);
+  const [welcomeAreas,setWelcomeAreas]=useState(null);
+  const [input,setInput]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [recording,setRecording]=useState(false);
+  const [pulse,setPulse]=useState(false);
+  const [msgMenu,setMsgMenu]=useState(null);
+  const [editingIdx,setEditingIdx]=useState(null);
+  const [editVal,setEditVal]=useState('');
+  const [copied,setCopied]=useState(null);
+  const [slashMenu,setSlashMenu]=useState(false);
+  const bottomRef=useRef(null);
+  const recRef=useRef(null);
+  const inputRef=useRef(null);
+  const closePanel=()=>{setOpen(false);onNavClose&&onNavClose();};
   useEffect(()=>{if(openFromNav)setOpen(true);},[openFromNav]);
 
   // ── Detectar primer arranque sin onboarding ──────────────────────────
@@ -629,22 +646,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     }, 600);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[welcomeData]);
-  const closePanel=()=>{setOpen(false);onNavClose&&onNavClose();};
-  const [showSugg,setShowSugg]=useState(true);
-  const [msgs,setMsgs]=useState([INIT_MSG]);
-  const [welcomeAreas,setWelcomeAreas]=useState(null); // areas shown as chips after welcome msg
-  const [input,setInput]=useState('');
-  const [loading,setLoading]=useState(false);
-  const [recording,setRecording]=useState(false);
-  const [pulse,setPulse]=useState(false);
-  const [msgMenu,setMsgMenu]=useState(null); // index of msg showing actions
-  const [editingIdx,setEditingIdx]=useState(null);
-  const [editVal,setEditVal]=useState('');
-  const [copied,setCopied]=useState(null);
-  const [slashMenu,setSlashMenu]=useState(false);
-  const bottomRef=useRef(null);
-  const recRef=useRef(null);
-  const inputRef=useRef(null);
+  // (state moved above)
 
   // Persist and restore conversation
   useEffect(()=>{
