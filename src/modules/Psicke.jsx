@@ -5,17 +5,7 @@ import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
-// Inline area definitions (Onboarding.jsx removed)
-const OB_AREAS = [
-  {id:'salud',       emoji:'💪', label:'Salud'},
-  {id:'trabajo',     emoji:'💼', label:'Trabajo'},
-  {id:'finanzas',    emoji:'💰', label:'Finanzas'},
-  {id:'hogar',       emoji:'🏠', label:'Hogar'},
-  {id:'desarrollo',  emoji:'🧠', label:'Desarrollo Personal'},
-  {id:'relaciones',  emoji:'👥', label:'Relaciones'},
-  {id:'sideproj',    emoji:'🚀', label:'Side Projects'},
-];
-import { scheduleNotification, getPermission, requestPermission, checkOnFocus } from '../utils/notifications.js';
+import { OB_AREAS } from './Onboarding.jsx';
 
 const GEMINI_MODEL = 'gemini-2.0-flash';
 
@@ -265,7 +255,6 @@ Identifica el módulo exacto donde guardar:
 
   SIDE PROJECTS:
   21. Nuevo proyecto personal → SAVE_SIDE_PROJECT
-  22. Recordatorio o aviso en fecha/hora específica → SAVE_REMINDER
       (name, description, status, stack, url, startDate)
       status: "idea"|"progress"|"paused"|"launched"|"archived"
   22. Tarea de un proyecto → SAVE_SP_TASK
@@ -403,10 +392,6 @@ Interacción: \`\`\`json
 
 Side project: \`\`\`json
 {"action":"SAVE_SIDE_PROJECT","data":{"name":"App de hábitos","description":"Tracker minimalista para hábitos diarios","status":"progress","stack":"React Native","url":"","startDate":"${t}"}}
-\`\`\`
-\
-Recordatorio: \`\`\`json
-{"action":"SAVE_REMINDER","data":{"title":"Llamar al doctor","body":"Pedir cita","fireAt":"2026-03-10T09:00:00","area":"Salud"}}
 \`\`\`
 
 Tarea de proyecto: \`\`\`json
@@ -559,77 +544,7 @@ const stripPsickeJson=(text)=>{
 const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone})=>{
   const INIT_MSG={role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?'};
   const [open,setOpen]=useState(false);
-  const [pendingRoadmap,setPendingRoadmap]=useState(null); // roadmap awaiting confirmation
-  const [firstRun,setFirstRun]=useState(false); // primera vez sin nombre guardado
-  // ── All state/refs declared here to avoid TDZ in useEffect deps ────
-  const [showSugg,setShowSugg]=useState(true);
-  const [msgs,setMsgs]=useState([INIT_MSG]);
-  const [welcomeAreas,setWelcomeAreas]=useState(null);
-  const [input,setInput]=useState('');
-  const [loading,setLoading]=useState(false);
-  const [recording,setRecording]=useState(false);
-  const [pulse,setPulse]=useState(false);
-  const [msgMenu,setMsgMenu]=useState(null);
-  const [editingIdx,setEditingIdx]=useState(null);
-  const [editVal,setEditVal]=useState('');
-  const [copied,setCopied]=useState(null);
-  const [slashMenu,setSlashMenu]=useState(false);
-  const bottomRef=useRef(null);
-  const recRef=useRef(null);
-  const inputRef=useRef(null);
-  const closePanel=()=>{setOpen(false);onNavClose&&onNavClose();};
   useEffect(()=>{if(openFromNav)setOpen(true);},[openFromNav]);
-
-  // ── Detectar primer arranque sin onboarding ──────────────────────────
-  useEffect(()=>{
-    if(!data) return;
-    const hasName = (() => { try { return !!localStorage.getItem('sb_user_name'); } catch { return false; } })();
-    const hasDone = (() => { try { return !!localStorage.getItem('sb_onboarding_done'); } catch { return false; } })();
-    if(!hasName && !hasDone && !open) {
-      setFirstRun(true);
-      setTimeout(()=>{ setOpen(true); }, 1200);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[data]);
-
-  // ── Mostrar mensaje de bienvenida primera vez ────────────────────────
-  useEffect(()=>{
-    if(!firstRun || !open) return;
-    setFirstRun(false);
-    const welcomeMsg = {
-      role:'assistant',
-      content:'¡Hola! Soy **Psicke**, tu asistente personal en Segundo Cerebro 🧠\n\n¿Cómo te llamas?'
-    };
-    setTimeout(()=>{ saveMsgs([welcomeMsg]); setShowSugg(false); }, 400);
-    try { localStorage.setItem('sb_onboarding_done','1'); } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[firstRun, open]);
-
-  // ── Guardar nombre cuando Psicke lo detecta ──────────────────────────
-  useEffect(()=>{
-    if(!msgs || msgs.length < 3) return;
-    const hasSavedName = (() => { try { return !!localStorage.getItem('sb_user_name'); } catch { return false; } })();
-    if(hasSavedName) return;
-    // Check if user's second message (first reply after welcome) looks like a name
-    const userMsgs = msgs.filter(m=>m.role==='user');
-    if(userMsgs.length === 1) {
-      const possibleName = userMsgs[0].content.trim().split(' ')[0];
-      if(possibleName.length >= 2 && possibleName.length <= 20 && !possibleName.includes(' ') === false || possibleName.length <= 20) {
-        try { localStorage.setItem('sb_user_name', possibleName); } catch {}
-      }
-    }
-  },[msgs]);
-
-  // ── Pedir permiso de notificaciones al abrir Psicke ──────────────────
-  useEffect(()=>{
-    if(!open) return;
-    const perm = getPermission();
-    if(perm === 'default') {
-      setTimeout(()=>requestPermission(), 3000);
-    }
-    checkOnFocus().catch(()=>{});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[open]);
 
   // ── Welcome flow after onboarding ──────────────────────────────────────
   useEffect(()=>{
@@ -655,7 +570,22 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     }, 600);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[welcomeData]);
-  // (state moved above)
+  const closePanel=()=>{setOpen(false);onNavClose&&onNavClose();};
+  const [showSugg,setShowSugg]=useState(true);
+  const [msgs,setMsgs]=useState([INIT_MSG]);
+  const [welcomeAreas,setWelcomeAreas]=useState(null); // areas shown as chips after welcome msg
+  const [input,setInput]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [recording,setRecording]=useState(false);
+  const [pulse,setPulse]=useState(false);
+  const [msgMenu,setMsgMenu]=useState(null); // index of msg showing actions
+  const [editingIdx,setEditingIdx]=useState(null);
+  const [editVal,setEditVal]=useState('');
+  const [copied,setCopied]=useState(null);
+  const [slashMenu,setSlashMenu]=useState(false);
+  const bottomRef=useRef(null);
+  const recRef=useRef(null);
+  const inputRef=useRef(null);
 
   // Persist and restore conversation
   useEffect(()=>{
@@ -683,8 +613,27 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   // ── Challenge profile ──────────────────────────────────────────────────
   const challenge=(()=>{ try{ return localStorage.getItem('sb_challenge')||null; }catch{ return null; } })();
 
-  // ── Daily auto-summary — DESACTIVADO ──
-  // useEffect(()=>{ ... },[open]);
+  // ── Daily auto-summary — fires once per day when panel opens ──
+  useEffect(()=>{
+    if(!open||!apiKey) return;
+    const key='psicke_daily_summary';
+    const lastDate=localStorage.getItem(key);
+    if(lastDate===today()) return;
+    const timer=setTimeout(()=>{
+      localStorage.setItem(key,today());
+      // Prompt adapted to challenge
+      const summaryPrompt = {
+        capt:  'Hazme un resumen de hoy enfocado en: ¿qué tengo pendiente en el inbox? ¿hay algo que debería capturar antes de que se me olvide? Máximo 3 puntos, sé breve.',
+        prio:  'Dime cuál es la tarea más importante que debo hacer hoy y por qué. Luego dame 2 cosas más si las hay. Sé directo y concreto.',
+        habit: 'Empieza con el estado de mis hábitos de hoy. Luego dime si tengo rachas activas. Finalmente una cosa relevante del día. Máximo 3 puntos.',
+        proj:  'Dime qué proyectos tienen el siguiente paso más urgente hoy. ¿Hay tareas vencidas? Dame máximo 3 acciones concretas que puedo hacer ahora.',
+        over:  'Dame solo 2 cosas: la más urgente del día y algo que puedo ignorar con tranquilidad hoy. Nada más. Sé muy breve y calmado.',
+      }[challenge] || 'Hazme un resumen breve de mi día: tareas pendientes, hábitos sin completar, finanzas del mes y objetivos activos. Máximo 4 puntos clave.';
+      send(summaryPrompt);
+    },900);
+    return()=>clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[open]);
 
   // Subtle pulse every 8s to remind user Psicke exists
   useEffect(()=>{
@@ -769,7 +718,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     const text=(textOverride??input).trim();
     if(!text||loading)return;
     setShowSugg(false);
-    try { localStorage.setItem('sb_psicke_used','1'); } catch{}
     const key=(apiKey||'').trim().replace(/\s+/g,'');
     if(!key){setOpen(false);onGoSettings();return;}
     const userMsg={role:'user',content:text};
@@ -792,22 +740,37 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         generationConfig:{temperature:0.7,maxOutputTokens:3000},
       };
 
-      // API call with one retry on 429
+      // API call with up to 3 retries and exponential backoff
       const callApi=async(attempt=0)=>{
         const res=await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
           {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
         );
-        if(res.status===429&&attempt===0){
-          await new Promise(r=>setTimeout(r,3000));
-          return callApi(1);
+        if(res.status===429){
+          if(attempt<2){
+            const wait=[8000,20000][attempt];
+            await new Promise(r=>setTimeout(r,wait));
+            return callApi(attempt+1);
+          }
+          const err=await res.json().catch(()=>({}));
+          const emsg=err?.error?.message||'';
+          if(emsg.toLowerCase().includes('quota')||emsg.toLowerCase().includes('exhausted'))
+            throw new Error('Límite diario de la API alcanzado. Verifica tu cuota en Google AI Studio.');
+          throw new Error('Demasiadas solicitudes. Espera un momento e intenta de nuevo.');
+        }
+        if(res.status===400){
+          const err=await res.json().catch(()=>({}));
+          const emsg=err?.error?.message||'Solicitud inválida';
+          if(emsg.toLowerCase().includes('api key')||emsg.toLowerCase().includes('invalid'))
+            throw new Error('API Key inválida. Revisa la clave en Ajustes → Gemini API Key.');
+          throw new Error(`Error 400: ${emsg}`);
+        }
+        if(res.status===403){
+          throw new Error('API Key sin permisos. Verifica que esté habilitada en Google AI Studio.');
         }
         if(!res.ok){
           const err=await res.json().catch(()=>({}));
-          const emsg=err?.error?.message||`HTTP ${res.status}`;
-          if(res.status===429||emsg.toLowerCase().includes('quota'))
-            throw new Error('Cuota agotada. Espere unos segundos e intente de nuevo.');
-          throw new Error(emsg);
+          throw new Error(err?.error?.message||`Error HTTP ${res.status}`);
         }
         return res.json();
       };
@@ -841,31 +804,24 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
 
         // Run all actions sequentially, accumulating state
         let updData={...data};
-        const applyRoadmap=(plan)=>{
+        const execAction=(action)=>{        // ── SAVE_PLAN ──
+        if(action.action==='SAVE_PLAN'&&action.data.objective){
+          const plan=action.data;
           const matchedArea=(data.areas||[]).find(a=>a.name.toLowerCase()===plan.area?.toLowerCase());
           const areaId=matchedArea?.id||'';
           const objId=uid();
-          const newObj={id:objId,title:plan.objective.title,areaId,deadline:plan.objective.deadline||'',status:'active',milestones:[],notes:''};
+          const newObj={id:objId,title:plan.objective.title,areaId,deadline:plan.objective.deadline||'',status:'active'};
           const projId=uid();
-          const newProj={id:projId,title:plan.project?.title||plan.objective.title,objectiveId:objId,areaId,status:'active',emoji:'🗺️',createdAt:today(),description:''};
-          const newTasks=(plan.tasks||[]).map(t=>({id:uid(),title:t.title,projectId:projId,objectiveId:objId,status:'todo',priority:t.priority||'media',dueDate:t.dueDate||'',createdAt:today(),subtasks:[],notes:''  }));
+          const newProj={id:projId,title:plan.project?.title||plan.objective.title,objectiveId:objId,areaId,status:'active'};
+          const newTasks=(plan.tasks||[]).map(t=>({id:uid(),title:t.title,projectId:projId,status:'todo',priority:t.priority||'media',dueDate:t.dueDate||''}));
           const newHabits=(plan.habits||[]).map(h=>({id:uid(),name:h.name,frequency:h.frequency||'daily',completions:[]}));
-          const updObj=[newObj,...(data.objectives||[])];
-          const updProj=[newProj,...(data.projects||[])];
-          const updTasks=[...newTasks,...(data.tasks||[])];
-          const updHabits=[...(data.habits||[]),...newHabits];
-          setData(d=>({...d,objectives:updObj,projects:updProj,tasks:updTasks,habits:updHabits}));
+          const updObj=[newObj,...(updData.objectives||[])];
+          const updProj=[newProj,...(updData.projects||[])];
+          const updTasks=[...newTasks,...(updData.tasks||[])];
+          const updHabits=[...(updData.habits||[]),...newHabits];
+          updData={...updData,objectives:updObj,projects:updProj,tasks:updTasks,habits:updHabits};
           save('objectives',updObj);save('projects',updProj);save('tasks',updTasks);save('habits',updHabits);
-          setPendingRoadmap(null);
-          const summary=`🗺️ **${newObj.title}** aplicado:\n${newTasks.map((t,i)=>`${i+1}. ${t.title}`).join('\n')}${newHabits.length?'\n🔁 '+newHabits.map(h=>h.name).join(', '):''}`;
-          saveMsgs(prev=>[...prev,{role:'assistant',content:summary+'\n\n✅ Todo guardado en tu Segundo Cerebro.'}]);
-        };
-
-        const execAction=(action)=>{        // ── SAVE_PLAN → mostrar confirmación ──
-        if(action.action==='SAVE_PLAN'&&action.data.objective){
-          // No ejecutar todavía — guardar en estado para mostrar tarjeta de confirmación
-          setTimeout(()=>setPendingRoadmap(action.data),200);
-          return null; // no label, la confirmación es en UI
+          return `🗺️ Plan creado · 🎯 ${newObj.title} · 📋 ${newTasks.length} tareas${newHabits.length?' · 🔁 '+newHabits.length+' hábitos':''}`;
 
         // ── SAVE_TASK ──
         }else if(action.action==='SAVE_TASK'&&action.data.title){
@@ -1058,19 +1014,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           const upd=[m,...(updData.milestones||[])];
           updData={...updData,milestones:upd};save('milestones',upd);
           return `🏆 Hito: "${m.title}"${proj?' en '+proj.name:''}`;
-
-        // ── SAVE_REMINDER ──
-        }else if(action.action==='SAVE_REMINDER'&&action.data.title){
-          const fireAt=new Date(action.data.fireAt).getTime();
-          const remId=uid();
-          const rem={id:remId,title:action.data.title,body:action.data.body||'',fireAt,area:action.data.area||''};
-          // Store in reminders list on data
-          const updRem=[...(updData.reminders||[]),rem];
-          updData={...updData,reminders:updRem};save('reminders',updRem);
-          // Schedule push notification
-          scheduleNotification({id:remId,title:action.data.title,body:action.data.body||'',fireAt}).catch(()=>{});
-          const fireDate=isNaN(fireAt)?action.data.fireAt:new Date(fireAt).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
-          return `⏰ Recordatorio: "${rem.title}" — ${fireDate}`;
 
         // ── SAVE_CAR_INFO ──
         }else if(action.action==='SAVE_CAR_INFO'){
@@ -1373,48 +1316,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                   </div>
                 );
               })}
-
-              {/* ── Roadmap confirmation card ── */}
-              {pendingRoadmap&&!loading&&(
-                <div style={{margin:'8px 0 4px',padding:'14px 16px',background:`${T.accent}0e`,border:`1.5px solid ${T.accent}40`,borderRadius:16,animation:'psicke-in 0.3s ease-out both'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-                    <span style={{fontSize:20}}>🗺️</span>
-                    <div>
-                      <div style={{color:T.text,fontWeight:700,fontSize:14}}>{pendingRoadmap.objective?.title}</div>
-                      <div style={{color:T.muted,fontSize:11,marginTop:1}}>{pendingRoadmap.area||''}  {pendingRoadmap.objective?.deadline?`· Hasta ${pendingRoadmap.objective.deadline}`:''}</div>
-                    </div>
-                  </div>
-                  {pendingRoadmap.tasks?.length>0&&(
-                    <div style={{marginBottom:8}}>
-                      {pendingRoadmap.tasks.slice(0,6).map((t,i)=>(
-                        <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 0',color:T.muted,fontSize:12}}>
-                          <span style={{color:T.accent,fontSize:10}}>{'●'}</span>
-                          <span>{t.title}</span>
-                          {t.priority==='alta'&&<span style={{fontSize:9,background:`${T.orange}22`,color:T.orange,padding:'1px 5px',borderRadius:4,fontWeight:600}}>ALTA</span>}
-                        </div>
-                      ))}
-                      {pendingRoadmap.tasks.length>6&&<div style={{color:T.dim,fontSize:11,marginTop:2}}>+{pendingRoadmap.tasks.length-6} tareas más</div>}
-                    </div>
-                  )}
-                  {pendingRoadmap.habits?.length>0&&(
-                    <div style={{marginBottom:10}}>
-                      {pendingRoadmap.habits.map((h,i)=>(
-                        <div key={i} style={{display:'flex',alignItems:'center',gap:6,color:T.muted,fontSize:12}}>
-                          <span style={{color:T.blue,fontSize:10}}>{'🔁'}</span>{h.name}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div style={{display:'flex',gap:8,marginTop:4}}>
-                    <button onClick={()=>applyRoadmap(pendingRoadmap)} style={{flex:1,padding:'8px',background:T.accent,border:'none',borderRadius:10,color:'#000',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
-                      ✅ Aplicar en mi app
-                    </button>
-                    <button onClick={()=>setPendingRoadmap(null)} style={{padding:'8px 14px',background:'transparent',border:`1px solid ${T.border}`,borderRadius:10,color:T.muted,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
-                      Descartar
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* ── Welcome area chips ── */}
               {welcomeAreas&&welcomeAreas.length>0&&!loading&&(
