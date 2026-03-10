@@ -11,9 +11,35 @@ import Hogar from './Hogar.jsx';
 import DesarrolloPersonal from './DesarrolloPersonal.jsx';
 import Relaciones from './Relaciones.jsx';
 import SideProjects from './SideProjects.jsx';
+import TrabajoEmbed from './TrabajoEmbed.jsx';
 
 // ===================== AREAS =====================
 const Areas = ({data,isMobile,onNavigate}) => {
+  const MODULES = [
+    {label:'PRODUCTIVIDAD', items:[
+      {id:'habits',     emoji:'🔄', name:'Hábitos'},
+      {id:'objectives', emoji:'🎯', name:'Objetivos'},
+      {id:'projects',   emoji:'📁', name:'Proyectos'},
+      {id:'journal',    emoji:'📔', name:'Journal'},
+      {id:'notes',      emoji:'📝', name:'Notas'},
+      {id:'books',      emoji:'📚', name:'Libros'},
+    ]},
+    {label:'ESTILO DE VIDA', items:[
+      {id:'entretenimiento', emoji:'🎬', name:'Entretenimiento'},
+      {id:'mascotas',        emoji:'🐾', name:'Mascotas'},
+      {id:'viajes',          emoji:'✈️', name:'Viajes'},
+      {id:'nutricion',       emoji:'🍴', name:'Nutrición'},
+      {id:'sueno',           emoji:'🌙', name:'Sueño'},
+    ]},
+    {label:'GESTIÓN', items:[
+      {id:'coche',       emoji:'🚗', name:'Vehículos'},
+      {id:'shopping',    emoji:'🛒', name:'Compras'},
+      {id:'education',   emoji:'🎓', name:'Educación'},
+      {id:'desarrollo',  emoji:'🧠', name:'Desarrollo'},
+      {id:'sideprojects',emoji:'🚀', name:'Side Projects'},
+    ]},
+  ];
+
   return (
     <div>
       <PageHeader title="Áreas de vida" subtitle="Los grandes pilares de tu vida." isMobile={isMobile}/>
@@ -35,6 +61,22 @@ const Areas = ({data,isMobile,onNavigate}) => {
           );
         })}
       </div>
+
+      {/* ── Módulos ── */}
+      {MODULES.map(section=>(
+        <div key={section.label} style={{marginTop:28}}>
+          <div style={{fontSize:10,fontWeight:700,color:T.dim,letterSpacing:1.4,textTransform:'uppercase',marginBottom:10}}>{section.label}</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+            {section.items.map(mod=>(
+              <button key={mod.id} onClick={()=>onNavigate&&onNavigate(mod.id)}
+                style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,padding:'14px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,cursor:'pointer',fontFamily:'inherit',transition:'all 0.15s'}}>
+                <span style={{fontSize:24}}>{mod.emoji}</span>
+                <span style={{fontSize:11,fontWeight:500,color:T.text,textAlign:'center',lineHeight:1.2}}>{mod.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
@@ -82,11 +124,9 @@ const AreaDetail = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate,onB
     return <SideProjects data={data} setData={setData} isMobile={isMobile} onBack={onBack}/>;
   }
 
-  // Si el área es Trabajo, abrir app externa directamente en nueva pestaña
+  // Si el área es Trabajo, embeber app externa
   if(area.name.toLowerCase().includes('trabajo')||area.name.toLowerCase().includes('work')||area.icon==='💼'){
-    window.open('https://jeal1498.github.io/AppWeb-ControlCheck/index.html','_blank','noopener,noreferrer');
-    if(onBack) onBack();
-    return null;
+    return <TrabajoEmbed isMobile={isMobile} onBack={onBack}/>;
   }
 
   const areaObjectives=data.objectives.filter(o=>o.areaId===areaId);
