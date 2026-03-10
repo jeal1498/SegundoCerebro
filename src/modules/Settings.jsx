@@ -7,7 +7,7 @@ import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../c
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 
 // ===================== GEMINI CONFIG =====================
-const GEMINI_MODEL='gemini-2.5-flash';
+const GEMINI_MODEL='gemini-2.0-flash';
 
 
 // ===================== SETTINGS =====================
@@ -15,6 +15,9 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
   const [val,setVal]=useState(apiKey);
   const [show,setShow]=useState(false);
   const [saved,setSaved]=useState(false);
+  const [testing,setTesting]=useState(false);
+  const [testResult,setTestResult]=useState(null);
+  const [testMsg,setTestMsg]=useState('');
   const [sTab,setSTab]=useState('ia');
   const [reviewStep,setReviewStep]=useState(0);
   const [notifEnabled,setNotifEnabled]=useState(()=>{try{return localStorage.getItem('sb_notifs')==='true';}catch{return false;}});
@@ -34,7 +37,35 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
     setTimeout(()=>setSaved(false),2500);
     toast.success('API Key guardada');
   };
-  const handleClear=()=>{setVal('');setApiKey('');localStorage.removeItem('sb_gemini_key');toast.info('API Key eliminada');};
+  const handleClear=()=>{setVal('');setApiKey('');localStorage.removeItem('sb_gemini_key');setTestResult(null);toast.info('API Key eliminada');};
+
+  const testKey=async()=>{
+    const k=val.trim();
+    if(!k){setTestResult('error');setTestMsg('Ingresa una API Key primero.');return;}
+    setTesting(true);setTestResult(null);setTestMsg('');
+    try{
+      const res=await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${k}`,
+        {method:'POST',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({contents:[{role:'user',parts:[{text:'Di hola.'}]}],generationConfig:{maxOutputTokens:10}})}
+      );
+      if(res.ok){
+        setTestResult('ok');
+        setTestMsg('✅ API Key válida y funcionando correctamente.');
+        localStorage.setItem('sb_gemini_key',k);
+        setApiKey(k);setSaved(true);
+        setTimeout(()=>setSaved(false),2500);
+      } else {
+        const err=await res.json().catch(()=>({}));
+        setTestResult('error');
+        setTestMsg('❌ '+(err?.error?.message||`Error HTTP ${res.status}`));
+      }
+    }catch(e){
+      setTestResult('error');
+      setTestMsg('❌ Error de red: '+e.message);
+    }
+    setTesting(false);
+  };
 
   // ── BACKUP ──
   const exportData=()=>{
@@ -258,13 +289,13 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
                   {show?'Ocultar':'Ver'}
                 </button>
               </div>
-              <div style={{display:'flex',gap:8,flexDirection:'column'}}>
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 <div style={{display:'flex',gap:8}}>
                   <Btn type="submit" style={{flex:1,justifyContent:'center'}}>
                     {saved?<><Icon name="checkCircle" size={15}/>Guardada</>:<><Icon name="key" size={15}/>Guardar</>}
                   </Btn>
                   <Btn type="button" variant="ghost" onClick={testKey} disabled={testing} style={{flex:1,justifyContent:'center'}}>
-                    {testing?'Probando…':'🔍 Probar key'}
+                    {testing?'Probando…':'🔍 Probar'}
                   </Btn>
                 </div>
                 {testResult&&(
