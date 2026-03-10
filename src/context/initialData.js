@@ -51,6 +51,20 @@ const initData = () => ({
   carInfo:{brand:'',model:'',year:'',plate:'',km:'',fuelType:'gasolina',fuelType1:'',fuelType2:''},
   vehicles:[],
   activeVehicleId:null,
+  // Tanda 2 — Nutrición y Sueño
+  recipes:[],
+  weekMenus:{},
+  sleepLog:[],
+  dreamJournal:[],
+  // Tanda 1 — nuevos módulos
+  entertainment:[],
+  pets:[],
+  petVaccines:[],
+  petVetVisits:[],
+  trips:[],
+  tripStops:[],
+  tripExpenses:[],
+  tripChecklist:{},
 });
 
 export { initData };
