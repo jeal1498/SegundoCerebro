@@ -33,6 +33,9 @@ const Vehiculos        = lazy(() => import('./modules/Vehiculos.jsx'));
 const Settings         = lazy(() => import('./modules/Settings.jsx'));
 const GlobalSearch     = lazy(() => import('./modules/GlobalSearch.jsx'));
 const Psicke           = lazy(() => import('./modules/Psicke.jsx'));
+const Entretenimiento  = lazy(() => import('./modules/Entretenimiento.jsx'));
+const Mascotas         = lazy(() => import('./modules/Mascotas.jsx'));
+const Viajes           = lazy(() => import('./modules/Viajes.jsx'));
 
 // ── Storage helpers (re-export pattern for App-level use) ──
 import { save, load } from './storage/index.js';
@@ -318,6 +321,9 @@ function App() {
       case 'desarrollo':   return <DesarrolloPersonal {...props} onBack={backToDashboard} />;
       case 'hogar':        return <Hogar {...props} onBack={backToDashboard} />;
       case 'coche':        return <Vehiculos {...props} onBack={backToDashboard} />;
+      case 'entretenimiento': return <Entretenimiento {...props} />;
+      case 'mascotas':       return <Mascotas {...props} />;
+      case 'viajes':         return <Viajes {...props} />;
       case 'settings':     return (
         <Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile} data={data} setData={setData}
           viewHint={viewHint} onConsumeHint={consumeHint}
