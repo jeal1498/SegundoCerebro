@@ -53,6 +53,8 @@ function App() {
   const [welcomePsicke, setWelcomePsicke] = useState(null);
   const [showSearch, setShowSearch]   = useState(false);
   const [apiKey, setApiKey]           = useState(() => { try { return localStorage.getItem('sb_gemini_key') || ''; } catch { return ''; } });
+  const [showWelcome, setShowWelcome] = useState(() => { try { return !localStorage.getItem('sb_gemini_key'); } catch { return true; } });
+  const [welcomeKeyInput, setWelcomeKeyInput] = useState('');
   const [transitioning, setTransitioning] = useState(false);
   const [isOnline, setIsOnline]       = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isDark, setIsDarkState]      = useState(() => {
@@ -393,6 +395,80 @@ function App() {
           </div>
           <button onClick={triggerInstall} style={{ background:T.accent,border:'none',borderRadius:8,padding:'7px 14px',color:'#000',fontSize:12,fontWeight:700,cursor:'pointer',flexShrink:0,whiteSpace:'nowrap' }}>Instalar</button>
           <button onClick={dismissInstallBanner} style={{ background:'none',border:'none',color:T.dim,cursor:'pointer',fontSize:18,padding:'0 2px',flexShrink:0,lineHeight:1 }}>×</button>
+        </div>
+      )}
+
+      {/* ── Welcome / API Key screen ── */}
+      {showWelcome && (
+        <div style={{ position:'fixed',inset:0,zIndex:9999,background:T.bg,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:28 }}>
+          <div style={{ width:'100%',maxWidth:380 }}>
+            {/* Logo */}
+            <div style={{ textAlign:'center',marginBottom:36 }}>
+              <div style={{ fontSize:52,marginBottom:12 }}>🧠</div>
+              <div style={{ fontFamily:"'Sora',sans-serif",fontSize:26,fontWeight:800,color:T.text,lineHeight:1.1 }}>
+                Segundo<br/><span style={{ color:T.accent }}>Cerebro</span>
+              </div>
+              <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:T.muted,marginTop:10,lineHeight:1.6 }}>
+                Tu sistema de productividad personal
+              </div>
+            </div>
+
+            {/* Card */}
+            <div style={{ background:T.surface,border:`1px solid ${T.border}`,borderRadius:20,padding:24 }}>
+              <div style={{ fontFamily:"'Sora',sans-serif",fontSize:15,fontWeight:700,color:T.text,marginBottom:6 }}>
+                Activa tu asistente IA
+              </div>
+              <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:T.muted,lineHeight:1.6,marginBottom:20 }}>
+                Psicke necesita una <strong style={{ color:T.text }}>Google Gemini API Key</strong> para funcionar. Es gratis y tarda menos de un minuto obtenerla.
+              </div>
+
+              {/* Input */}
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,fontWeight:600,color:T.muted,letterSpacing:.5,textTransform:'uppercase',display:'block',marginBottom:6 }}>
+                  API Key
+                </label>
+                <input
+                  type="password"
+                  placeholder="AIza..."
+                  value={welcomeKeyInput}
+                  onChange={e => setWelcomeKeyInput(e.target.value)}
+                  style={{ width:'100%',background:T.surface2,border:`1px solid ${welcomeKeyInput.length>10?T.accent:T.border}`,borderRadius:10,padding:'10px 14px',color:T.text,fontSize:14,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:'none',transition:'border-color .2s' }}
+                />
+              </div>
+
+              {/* Primary CTA */}
+              <button
+                onClick={() => {
+                  const key = welcomeKeyInput.trim();
+                  if (!key) return;
+                  try { localStorage.setItem('sb_gemini_key',''); localStorage.setItem('sb_gemini_key', key); } catch {}
+                  setApiKey(key);
+                  setShowWelcome(false);
+                }}
+                disabled={welcomeKeyInput.trim().length < 10}
+                style={{ width:'100%',background:welcomeKeyInput.trim().length>=10?T.accent:'#2a3440',border:'none',borderRadius:12,padding:'13px 0',color:welcomeKeyInput.trim().length>=10?'#000':T.dim,fontFamily:"'Sora',sans-serif",fontSize:14,fontWeight:700,cursor:welcomeKeyInput.trim().length>=10?'pointer':'not-allowed',transition:'all .2s',marginBottom:10 }}>
+                Activar Psicke →
+              </button>
+
+              {/* Get key link */}
+              <div style={{ textAlign:'center',marginBottom:16 }}>
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer"
+                  style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,color:T.blue,textDecoration:'none' }}>
+                  Obtener API Key gratis en Google AI Studio ↗
+                </a>
+              </div>
+
+              {/* Skip */}
+              <button
+                onClick={() => {
+                  try { localStorage.setItem('sb_gemini_key', ''); } catch {}
+                  setShowWelcome(false);
+                }}
+                style={{ width:'100%',background:'none',border:'none',color:T.dim,fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,cursor:'pointer',padding:'6px 0' }}>
+                Continuar sin IA — configurar después en Ajustes
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
