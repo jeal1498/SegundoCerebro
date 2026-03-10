@@ -17,7 +17,7 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
@@ -729,7 +729,9 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     if(!text||loading)return;
     setShowSugg(false);
     const key=(apiKey||'').trim().replace(/\s+/g,'');
+    console.log('[Psicke] key length:', key.length, 'starts:', key.slice(0,6));
     if(!key){setOpen(false);onGoSettings();return;}
+    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes y pega la clave completa desde Google AI Studio.'}]); return; }
     const userMsg={role:'user',content:text};
     const next=[...msgs,userMsg];
     saveMsgs(next);setInput('');setLoading(true);
@@ -775,18 +777,19 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           if(modelIdx<GEMINI_MODELS.length-1) return callApi(modelIdx+1, 0);
           throw new Error('Demasiadas solicitudes. Espera unos minutos e intenta de nuevo.');
         }
-        if(res.status===404||res.status===400){
+        if(res.status===400){
           const err=await res.json().catch(()=>({}));
           const emsg=err?.error?.message||'';
-          // Try next model if this one isn't available
-          if((emsg.toLowerCase().includes('not found')||emsg.toLowerCase().includes('not supported'))&&modelIdx<GEMINI_MODELS.length-1){
-            return callApi(modelIdx+1, 0);
-          }
-          if(emsg.toLowerCase().includes('api key')||emsg.toLowerCase().includes('api_key_invalid')||res.status===400&&emsg.toLowerCase().includes('invalid'))
-            throw new Error(`API Key inválida. Ve a Ajustes y pega de nuevo la clave de Google AI Studio.
-
-Detalle: ${emsg}`);
-          throw new Error(`Error ${res.status}: ${emsg}`);
+          if(emsg.toLowerCase().includes('api key')||emsg.toLowerCase().includes('api_key_invalid')||emsg.toLowerCase().includes('not found')||emsg.toLowerCase().includes('not pass'))
+            throw new Error(`API Key no válida. Ve a Ajustes → borra la clave actual → pega la nueva desde Google AI Studio.`);
+          throw new Error(`Error 400: ${emsg}`);
+        }
+        if(res.status===404){
+          const err=await res.json().catch(()=>({}));
+          const emsg=err?.error?.message||'';
+          // Model not available → try next one
+          if(modelIdx<GEMINI_MODELS.length-1) return callApi(modelIdx+1, 0);
+          throw new Error(`Ningún modelo Gemini disponible para esta API Key. Verifica en Google AI Studio.`);
         }
         if(res.status===403){
           const err=await res.json().catch(()=>({}));

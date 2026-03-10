@@ -6,7 +6,6 @@ import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 
-import { toast } from './Toast.jsx';
 // ===================== GEMINI CONFIG =====================
 const GEMINI_MODEL='gemini-2.5-flash';
 
@@ -259,11 +258,21 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
                   {show?'Ocultar':'Ver'}
                 </button>
               </div>
-              <div style={{display:'flex',gap:10}}>
-                <Btn type="submit" style={{flex:1,justifyContent:'center'}}>
-                  {saved?<><Icon name="checkCircle" size={15}/>Guardada</>:<><Icon name="key" size={15}/>Guardar</>}
-                </Btn>
-                {apiKey&&<Btn variant="danger" type="button" onClick={handleClear} size="md" style={{flexShrink:0}}>Limpiar</Btn>}
+              <div style={{display:'flex',gap:8,flexDirection:'column'}}>
+                <div style={{display:'flex',gap:8}}>
+                  <Btn type="submit" style={{flex:1,justifyContent:'center'}}>
+                    {saved?<><Icon name="checkCircle" size={15}/>Guardada</>:<><Icon name="key" size={15}/>Guardar</>}
+                  </Btn>
+                  <Btn type="button" variant="ghost" onClick={testKey} disabled={testing} style={{flex:1,justifyContent:'center'}}>
+                    {testing?'Probando…':'🔍 Probar key'}
+                  </Btn>
+                </div>
+                {testResult&&(
+                  <div style={{fontSize:12,color:testResult==='ok'?T.green:T.red,background:testResult==='ok'?`${T.green}11`:`${T.red}11`,border:`1px solid ${testResult==='ok'?T.green:T.red}33`,borderRadius:8,padding:'8px 12px',lineHeight:1.5}}>
+                    {testMsg}
+                  </div>
+                )}
+                {apiKey&&<Btn variant="danger" type="button" onClick={handleClear} size="md" style={{alignSelf:'flex-start'}}>Limpiar key</Btn>}
               </div>
             </form>
           </Card>
