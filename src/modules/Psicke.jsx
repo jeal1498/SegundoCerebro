@@ -6,6 +6,7 @@ import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 import { OB_AREAS } from './Onboarding.jsx';
+import { scheduleNotification, getPermission, requestPermission, checkOnFocus } from '../utils/notifications.js';
 
 const GEMINI_MODEL = 'gemini-2.0-flash';
 
@@ -255,6 +256,7 @@ Identifica el módulo exacto donde guardar:
 
   SIDE PROJECTS:
   21. Nuevo proyecto personal → SAVE_SIDE_PROJECT
+  22. Recordatorio o aviso en fecha/hora específica → SAVE_REMINDER
       (name, description, status, stack, url, startDate)
       status: "idea"|"progress"|"paused"|"launched"|"archived"
   22. Tarea de un proyecto → SAVE_SP_TASK
@@ -392,6 +394,10 @@ Interacción: \`\`\`json
 
 Side project: \`\`\`json
 {"action":"SAVE_SIDE_PROJECT","data":{"name":"App de hábitos","description":"Tracker minimalista para hábitos diarios","status":"progress","stack":"React Native","url":"","startDate":"${t}"}}
+\`\`\`
+\
+Recordatorio: \`\`\`json
+{"action":"SAVE_REMINDER","data":{"title":"Llamar al doctor","body":"Pedir cita","fireAt":"2026-03-10T09:00:00","area":"Salud"}}
 \`\`\`
 
 Tarea de proyecto: \`\`\`json
@@ -544,7 +550,60 @@ const stripPsickeJson=(text)=>{
 const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone})=>{
   const INIT_MSG={role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?'};
   const [open,setOpen]=useState(false);
+  const [pendingRoadmap,setPendingRoadmap]=useState(null); // roadmap awaiting confirmation
+  const [firstRun,setFirstRun]=useState(false); // primera vez sin nombre guardado
   useEffect(()=>{if(openFromNav)setOpen(true);},[openFromNav]);
+
+  // ── Detectar primer arranque sin onboarding ──────────────────────────
+  useEffect(()=>{
+    if(!data) return;
+    const hasName = (() => { try { return !!localStorage.getItem('sb_user_name'); } catch { return false; } })();
+    const hasDone = (() => { try { return !!localStorage.getItem('sb_onboarding_done'); } catch { return false; } })();
+    if(!hasName && !hasDone && !open) {
+      setFirstRun(true);
+      setTimeout(()=>{ setOpen(true); }, 1200);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[data]);
+
+  // ── Mostrar mensaje de bienvenida primera vez ────────────────────────
+  useEffect(()=>{
+    if(!firstRun || !open) return;
+    setFirstRun(false);
+    const welcomeMsg = {
+      role:'assistant',
+      content:'¡Hola! Soy **Psicke**, tu asistente personal en Segundo Cerebro 🧠\n\n¿Cómo te llamas?'
+    };
+    setTimeout(()=>{ saveMsgs([welcomeMsg]); setShowSugg(false); }, 400);
+    try { localStorage.setItem('sb_onboarding_done','1'); } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[firstRun, open]);
+
+  // ── Guardar nombre cuando Psicke lo detecta ──────────────────────────
+  useEffect(()=>{
+    if(!msgs || msgs.length < 3) return;
+    const hasSavedName = (() => { try { return !!localStorage.getItem('sb_user_name'); } catch { return false; } })();
+    if(hasSavedName) return;
+    // Check if user's second message (first reply after welcome) looks like a name
+    const userMsgs = msgs.filter(m=>m.role==='user');
+    if(userMsgs.length === 1) {
+      const possibleName = userMsgs[0].content.trim().split(' ')[0];
+      if(possibleName.length >= 2 && possibleName.length <= 20 && !possibleName.includes(' ') === false || possibleName.length <= 20) {
+        try { localStorage.setItem('sb_user_name', possibleName); } catch {}
+      }
+    }
+  },[msgs]);
+
+  // ── Pedir permiso de notificaciones al abrir Psicke ──────────────────
+  useEffect(()=>{
+    if(!open) return;
+    const perm = getPermission();
+    if(perm === 'default') {
+      setTimeout(()=>requestPermission(), 3000);
+    }
+    checkOnFocus().catch(()=>{});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[open]);
 
   // ── Welcome flow after onboarding ──────────────────────────────────────
   useEffect(()=>{
@@ -699,7 +758,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     const text=(textOverride??input).trim();
     if(!text||loading)return;
     setShowSugg(false);
-    // Marcar Psicke como usado (para el objetivo tutorial)
     try { localStorage.setItem('sb_psicke_used','1'); } catch{}
     const key=(apiKey||'').trim().replace(/\s+/g,'');
     if(!key){setOpen(false);onGoSettings();return;}
@@ -772,24 +830,31 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
 
         // Run all actions sequentially, accumulating state
         let updData={...data};
-        const execAction=(action)=>{        // ── SAVE_PLAN ──
-        if(action.action==='SAVE_PLAN'&&action.data.objective){
-          const plan=action.data;
+        const applyRoadmap=(plan)=>{
           const matchedArea=(data.areas||[]).find(a=>a.name.toLowerCase()===plan.area?.toLowerCase());
           const areaId=matchedArea?.id||'';
           const objId=uid();
-          const newObj={id:objId,title:plan.objective.title,areaId,deadline:plan.objective.deadline||'',status:'active'};
+          const newObj={id:objId,title:plan.objective.title,areaId,deadline:plan.objective.deadline||'',status:'active',milestones:[],notes:''};
           const projId=uid();
-          const newProj={id:projId,title:plan.project?.title||plan.objective.title,objectiveId:objId,areaId,status:'active'};
-          const newTasks=(plan.tasks||[]).map(t=>({id:uid(),title:t.title,projectId:projId,status:'todo',priority:t.priority||'media',dueDate:t.dueDate||''}));
+          const newProj={id:projId,title:plan.project?.title||plan.objective.title,objectiveId:objId,areaId,status:'active',emoji:'🗺️',createdAt:today(),description:''};
+          const newTasks=(plan.tasks||[]).map(t=>({id:uid(),title:t.title,projectId:projId,objectiveId:objId,status:'todo',priority:t.priority||'media',dueDate:t.dueDate||'',createdAt:today(),subtasks:[],notes:''  }));
           const newHabits=(plan.habits||[]).map(h=>({id:uid(),name:h.name,frequency:h.frequency||'daily',completions:[]}));
-          const updObj=[newObj,...(updData.objectives||[])];
-          const updProj=[newProj,...(updData.projects||[])];
-          const updTasks=[...newTasks,...(updData.tasks||[])];
-          const updHabits=[...(updData.habits||[]),...newHabits];
-          updData={...updData,objectives:updObj,projects:updProj,tasks:updTasks,habits:updHabits};
+          const updObj=[newObj,...(data.objectives||[])];
+          const updProj=[newProj,...(data.projects||[])];
+          const updTasks=[...newTasks,...(data.tasks||[])];
+          const updHabits=[...(data.habits||[]),...newHabits];
+          setData(d=>({...d,objectives:updObj,projects:updProj,tasks:updTasks,habits:updHabits}));
           save('objectives',updObj);save('projects',updProj);save('tasks',updTasks);save('habits',updHabits);
-          return `🗺️ Plan creado · 🎯 ${newObj.title} · 📋 ${newTasks.length} tareas${newHabits.length?' · 🔁 '+newHabits.length+' hábitos':''}`;
+          setPendingRoadmap(null);
+          const summary=`🗺️ **${newObj.title}** aplicado:\n${newTasks.map((t,i)=>`${i+1}. ${t.title}`).join('\n')}${newHabits.length?'\n🔁 '+newHabits.map(h=>h.name).join(', '):''}`;
+          saveMsgs(prev=>[...prev,{role:'assistant',content:summary+'\n\n✅ Todo guardado en tu Segundo Cerebro.'}]);
+        };
+
+        const execAction=(action)=>{        // ── SAVE_PLAN → mostrar confirmación ──
+        if(action.action==='SAVE_PLAN'&&action.data.objective){
+          // No ejecutar todavía — guardar en estado para mostrar tarjeta de confirmación
+          setTimeout(()=>setPendingRoadmap(action.data),200);
+          return null; // no label, la confirmación es en UI
 
         // ── SAVE_TASK ──
         }else if(action.action==='SAVE_TASK'&&action.data.title){
@@ -982,6 +1047,19 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           const upd=[m,...(updData.milestones||[])];
           updData={...updData,milestones:upd};save('milestones',upd);
           return `🏆 Hito: "${m.title}"${proj?' en '+proj.name:''}`;
+
+        // ── SAVE_REMINDER ──
+        }else if(action.action==='SAVE_REMINDER'&&action.data.title){
+          const fireAt=new Date(action.data.fireAt).getTime();
+          const remId=uid();
+          const rem={id:remId,title:action.data.title,body:action.data.body||'',fireAt,area:action.data.area||''};
+          // Store in reminders list on data
+          const updRem=[...(updData.reminders||[]),rem];
+          updData={...updData,reminders:updRem};save('reminders',updRem);
+          // Schedule push notification
+          scheduleNotification({id:remId,title:action.data.title,body:action.data.body||'',fireAt}).catch(()=>{});
+          const fireDate=isNaN(fireAt)?action.data.fireAt:new Date(fireAt).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
+          return `⏰ Recordatorio: "${rem.title}" — ${fireDate}`;
 
         // ── SAVE_CAR_INFO ──
         }else if(action.action==='SAVE_CAR_INFO'){
@@ -1284,6 +1362,48 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                   </div>
                 );
               })}
+
+              {/* ── Roadmap confirmation card ── */}
+              {pendingRoadmap&&!loading&&(
+                <div style={{margin:'8px 0 4px',padding:'14px 16px',background:`${T.accent}0e`,border:`1.5px solid ${T.accent}40`,borderRadius:16,animation:'psicke-in 0.3s ease-out both'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                    <span style={{fontSize:20}}>🗺️</span>
+                    <div>
+                      <div style={{color:T.text,fontWeight:700,fontSize:14}}>{pendingRoadmap.objective?.title}</div>
+                      <div style={{color:T.muted,fontSize:11,marginTop:1}}>{pendingRoadmap.area||''}  {pendingRoadmap.objective?.deadline?`· Hasta ${pendingRoadmap.objective.deadline}`:''}</div>
+                    </div>
+                  </div>
+                  {pendingRoadmap.tasks?.length>0&&(
+                    <div style={{marginBottom:8}}>
+                      {pendingRoadmap.tasks.slice(0,6).map((t,i)=>(
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 0',color:T.muted,fontSize:12}}>
+                          <span style={{color:T.accent,fontSize:10}}>{'●'}</span>
+                          <span>{t.title}</span>
+                          {t.priority==='alta'&&<span style={{fontSize:9,background:`${T.orange}22`,color:T.orange,padding:'1px 5px',borderRadius:4,fontWeight:600}}>ALTA</span>}
+                        </div>
+                      ))}
+                      {pendingRoadmap.tasks.length>6&&<div style={{color:T.dim,fontSize:11,marginTop:2}}>+{pendingRoadmap.tasks.length-6} tareas más</div>}
+                    </div>
+                  )}
+                  {pendingRoadmap.habits?.length>0&&(
+                    <div style={{marginBottom:10}}>
+                      {pendingRoadmap.habits.map((h,i)=>(
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:6,color:T.muted,fontSize:12}}>
+                          <span style={{color:T.blue,fontSize:10}}>{'🔁'}</span>{h.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{display:'flex',gap:8,marginTop:4}}>
+                    <button onClick={()=>applyRoadmap(pendingRoadmap)} style={{flex:1,padding:'8px',background:T.accent,border:'none',borderRadius:10,color:'#000',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+                      ✅ Aplicar en mi app
+                    </button>
+                    <button onClick={()=>setPendingRoadmap(null)} style={{padding:'8px 14px',background:'transparent',border:`1px solid ${T.border}`,borderRadius:10,color:T.muted,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
+                      Descartar
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* ── Welcome area chips ── */}
               {welcomeAreas&&welcomeAreas.length>0&&!loading&&(
