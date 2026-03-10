@@ -51,6 +51,11 @@ const initData = () => ({
   carInfo:{brand:'',model:'',year:'',plate:'',km:'',fuelType:'gasolina',fuelType1:'',fuelType2:''},
   vehicles:[],
   activeVehicleId:null,
+  // Tanda 3 — Momentos, 21 días, visitas médicas
+  moments:[],
+  habitChallenges:[],
+  medicalVisits:[],
+  medicalDocs:[],
   // Tanda 2 — Nutrición y Sueño
   recipes:[],
   weekMenus:{},
