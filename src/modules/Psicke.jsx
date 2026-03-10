@@ -699,6 +699,8 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     const text=(textOverride??input).trim();
     if(!text||loading)return;
     setShowSugg(false);
+    // Marcar Psicke como usado (para el objetivo tutorial)
+    try { localStorage.setItem('sb_psicke_used','1'); } catch{}
     const key=(apiKey||'').trim().replace(/\s+/g,'');
     if(!key){setOpen(false);onGoSettings();return;}
     const userMsg={role:'user',content:text};
