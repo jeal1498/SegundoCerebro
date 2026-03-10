@@ -177,15 +177,19 @@ function App() {
 
   // ── Android/iOS back button — intercept popstate ──
   useEffect(() => {
-    // Seed initial history state so first back has somewhere to go
+    // replaceState sella la entrada nativa + pushState añade un buffer extra
+    // así siempre hay al menos 2 entradas propias antes de poder salir
     history.replaceState({ view: 'dashboard', hint: null }, '', null);
+    history.pushState({ view: 'dashboard', hint: null }, '', null);
 
     const onPop = (e) => {
       const state = e.state;
       if (state && state.view) {
         goToView(state.view, state.hint || null);
-      } else {
-        // No more internal history — push a new dashboard state to prevent exit
+      }
+      // Si state es null llegamos al fondo — re-insertar buffer y quedarnos
+      if (!state || !state.view) {
+        history.pushState({ view: 'dashboard', hint: null }, '', null);
         history.pushState({ view: 'dashboard', hint: null }, '', null);
         goToView('dashboard', null);
       }
