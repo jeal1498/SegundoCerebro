@@ -33,6 +33,8 @@ const Vehiculos        = lazy(() => import('./modules/Vehiculos.jsx'));
 const Settings         = lazy(() => import('./modules/Settings.jsx'));
 const GlobalSearch     = lazy(() => import('./modules/GlobalSearch.jsx'));
 const Psicke           = lazy(() => import('./modules/Psicke.jsx'));
+const Nutricion        = lazy(() => import('./modules/Nutricion.jsx'));
+const Sueno            = lazy(() => import('./modules/Sueno.jsx'));
 const Entretenimiento  = lazy(() => import('./modules/Entretenimiento.jsx'));
 const Mascotas         = lazy(() => import('./modules/Mascotas.jsx'));
 const Viajes           = lazy(() => import('./modules/Viajes.jsx'));
@@ -321,6 +323,8 @@ function App() {
       case 'desarrollo':   return <DesarrolloPersonal {...props} onBack={backToDashboard} />;
       case 'hogar':        return <Hogar {...props} onBack={backToDashboard} />;
       case 'coche':        return <Vehiculos {...props} onBack={backToDashboard} />;
+      case 'nutricion':       return <Nutricion {...props} />;
+      case 'sueno':           return <Sueno {...props} />;
       case 'entretenimiento': return <Entretenimiento {...props} />;
       case 'mascotas':       return <Mascotas {...props} />;
       case 'viajes':         return <Viajes {...props} />;
