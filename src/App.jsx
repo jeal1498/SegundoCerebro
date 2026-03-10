@@ -147,6 +147,7 @@ function App() {
   // ── Data bootstrap ──
   useEffect(() => {
     (async () => {
+      // Ensure onboarding flag is set — welcome handled by Psicke
       try { localStorage.setItem('sb_onboarding_done', '1'); } catch {}
       const def = initData();
       const keys = Object.keys(def);
@@ -157,22 +158,58 @@ function App() {
     })();
   }, []);
 
+  // ── History API — Android back button support ──
+  // Push a state entry whenever the user navigates, so the system back button
+  // pops between modules instead of exiting the app.
+  const pushHistory = useCallback((v) => {
+    try {
+      // Always keep at least one entry at the bottom of the stack (dashboard)
+      if (window.history.state?.view !== v) {
+        window.history.pushState({ view: v }, '', window.location.pathname);
+      }
+    } catch (_) {}
+  }, []);
+
+  // Seed the initial history entry on first mount so there's always a "home" entry
+  useEffect(() => {
+    try {
+      if (!window.history.state?.view) {
+        window.history.replaceState({ view: 'dashboard' }, '', window.location.pathname);
+      }
+    } catch (_) {}
+  }, []);
+
+  // Listen for the back gesture / button
+  useEffect(() => {
+    const onPop = (e) => {
+      const target = e.state?.view ?? 'dashboard';
+      setTransitioning(true);
+      setPsickeOpen(false);
+      setTimeout(() => { setView(target); setViewHint(null); setTransitioning(false); }, 120);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   // ── Navigation ──
   const navigate = (v, hint = null) => {
     if (v === view) { setViewHint(hint); return; }
+    pushHistory(v);
     setTransitioning(true);
     setTimeout(() => { setView(v); setViewHint(hint); setTransitioning(false); }, 120);
   };
   const navTo = (v) => {
     if (v === view) return;
+    pushHistory(v);
     setTransitioning(true);
     setTimeout(() => { setView(v); setViewHint(null); setTransitioning(false); }, 120);
   };
   const consumeHint = useCallback(() => setViewHint(null), []);
   const backToDashboard = useCallback(() => {
+    pushHistory('dashboard');
     setTransitioning(true);
     setTimeout(() => { setView('dashboard'); setViewHint(null); setTransitioning(false); }, 120);
-  }, []);
+  }, [pushHistory]);
 
   if (!data) return <AppLoader />;
 
@@ -223,11 +260,11 @@ function App() {
       display: 'flex', flexDirection: isMobile ? 'column' : 'row',
       height: '100dvh', width: '100%',
       background: T.bg,
-      fontFamily: "'Plus Jakarta Sans',system-ui,sans-serif",
+      fontFamily: "'DM Sans',system-ui,sans-serif",
       color: T.text, overflow: 'hidden', position: 'fixed', inset: 0,
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500&display=swap');
         html,body,#root{margin:0;padding:0;width:100%;height:100%;background:${T.bg};}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
         *:focus-visible{outline:2px solid ${T.accent};outline-offset:2px;border-radius:4px;}
@@ -254,8 +291,8 @@ function App() {
             <div style={{ display:'flex',alignItems:'center',gap:10 }}>
               <div style={{ width:34,height:34,background:`linear-gradient(135deg,${T.accent},${T.orange})`,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20 }}>🧠</div>
               <div>
-                <div style={{ fontFamily:"'Sora',sans-serif",fontSize:14,fontWeight:800,color:T.text,lineHeight:1 }}>Segundo</div>
-                <div style={{ fontFamily:"'Sora',sans-serif",fontSize:14,fontWeight:800,color:T.accent,lineHeight:1 }}>Cerebro</div>
+                <div style={{ fontFamily:"'Playfair Display',serif",fontSize:14,fontWeight:700,color:T.text,lineHeight:1 }}>Segundo</div>
+                <div style={{ fontFamily:"'Playfair Display',serif",fontSize:14,fontWeight:700,color:T.accent,lineHeight:1 }}>Cerebro</div>
               </div>
             </div>
           </div>
@@ -292,14 +329,16 @@ function App() {
 
       {/* ── Mobile top bar ── */}
       {isMobile && (
-        <div style={{ background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'8px 16px',minHeight:58,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
+        <div style={{ background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0 }}>
           <div style={{ display:'flex',alignItems:'center',gap:8 }}>
-            <span style={{ fontFamily:"'Sora',sans-serif",fontSize:15,fontWeight:800,color:T.text }}>
+            <div style={{ width:28,height:28,background:`linear-gradient(135deg,${T.accent},${T.orange})`,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:17 }}>🧠</div>
+            <span style={{ fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:T.text }}>
               Segundo <span style={{ color:T.accent }}>Cerebro</span>
             </span>
           </div>
           <div style={{ display:'flex',gap:8,alignItems:'center' }}>
-            {inboxCount > 0 && <button onClick={() => navTo('inbox')} style={{ background:T.red,color:'#fff',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:12,border:'none',cursor:'pointer',fontFamily:'inherit' }}>{inboxCount} inbox</button>}
+            {inboxCount > 0 && <span style={{ background:T.red,color:'#fff',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:12 }}>{inboxCount} inbox</span>}
+            <button onClick={toggleTheme} style={{ background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:T.muted,fontSize:14,display:'flex',alignItems:'center' }}>{isDark ? '☀️' : '🌙'}</button>
             <button onClick={() => setShowSearch(true)} style={{ background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:T.muted,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4 }}>🔍</button>
             <button onClick={() => navTo('settings')} style={{ background:'none',border:`1px solid ${apiKey?T.green:T.red}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:apiKey?T.green:T.red,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4 }}>
               <span style={{ width:6,height:6,borderRadius:'50%',background:apiKey?T.green:T.red,display:'inline-block' }}/>
@@ -352,6 +391,8 @@ function App() {
           openFromNav={psickeOpen} onNavClose={() => setPsickeOpen(false)}
           welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}/>
       </Suspense>
+
+
 
       {/* ── PWA Install Banner ── */}
       {showInstallBanner && !isInstalled && (
