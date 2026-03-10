@@ -26,6 +26,8 @@ const NAV_SECTIONS=[
     {id:'hogar',label:'Hogar',icon:'home'},
   ]},
   {label:'ESTILO DE VIDA',items:[
+    {id:'nutricion',label:'Nutrición',icon:'fork'},
+    {id:'sueno',label:'Sueño',icon:'moon'},
     {id:'entretenimiento',label:'Entretenimiento',icon:'film'},
     {id:'mascotas',label:'Mascotas',icon:'paw'},
     {id:'viajes',label:'Viajes',icon:'plane'},
