@@ -25,6 +25,11 @@ const NAV_SECTIONS=[
     {id:'books',label:'Libros',icon:'book'},
     {id:'hogar',label:'Hogar',icon:'home'},
   ]},
+  {label:'ESTILO DE VIDA',items:[
+    {id:'entretenimiento',label:'Entretenimiento',icon:'film'},
+    {id:'mascotas',label:'Mascotas',icon:'paw'},
+    {id:'viajes',label:'Viajes',icon:'plane'},
+  ]},
   {label:'SISTEMA',items:[
     {id:'settings',label:'Config',icon:'cog'},
   ]},
