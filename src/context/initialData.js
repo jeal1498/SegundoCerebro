@@ -51,17 +51,7 @@ const initData = () => ({
   carInfo:{brand:'',model:'',year:'',plate:'',km:'',fuelType:'gasolina',fuelType1:'',fuelType2:''},
   vehicles:[],
   activeVehicleId:null,
-  // Tanda 3 — Momentos, 21 días, visitas médicas
-  moments:[],
-  habitChallenges:[],
-  medicalVisits:[],
-  medicalDocs:[],
-  // Tanda 2 — Nutrición y Sueño
-  recipes:[],
-  weekMenus:{},
-  sleepLog:[],
-  dreamJournal:[],
-  // Tanda 1 — nuevos módulos
+  // Tanda 1 — Entretenimiento, Mascotas, Viajes
   entertainment:[],
   pets:[],
   petVaccines:[],
@@ -70,6 +60,20 @@ const initData = () => ({
   tripStops:[],
   tripExpenses:[],
   tripChecklist:{},
+  // Tanda 2 — Nutrición y Sueño
+  recipes:[],
+  weekMenus:{},
+  sleepLog:[],
+  dreamJournal:[],
+  // Tanda 3 — Momentos, 21 días, visitas médicas
+  moments:[],
+  habitChallenges:[],
+  medicalVisits:[],
+  medicalDocs:[],
+  // Farmacia
+  farmaciaItems:[],
+  // Reminders
+  reminders:[],
 });
 
 export { initData };
