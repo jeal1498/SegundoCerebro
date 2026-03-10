@@ -17,7 +17,7 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
@@ -750,33 +750,44 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         generationConfig:{temperature:0.7,maxOutputTokens:3000},
       };
 
-      // API call with up to 3 retries and exponential backoff
-      const callApi=async(attempt=0)=>{
+      // API call with model fallback + retry on 429
+      const callApi=async(modelIdx=0, attempt=0)=>{
+        const model = GEMINI_MODELS[modelIdx] || GEMINI_MODELS[0];
         const res=await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
           {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
         );
         if(res.status===429){
           if(attempt<2){
             const wait=[8000,20000][attempt];
             await new Promise(r=>setTimeout(r,wait));
-            return callApi(attempt+1);
+            return callApi(modelIdx, attempt+1);
           }
           const err=await res.json().catch(()=>({}));
           const emsg=err?.error?.message||'';
           if(emsg.toLowerCase().includes('quota')||emsg.toLowerCase().includes('exhausted'))
-            throw new Error('Límite diario de la API alcanzado. Verifica tu cuota en Google AI Studio.');
+            throw new Error(`Límite diario alcanzado para ${model}. Verifica tu cuota en Google AI Studio.`);
           throw new Error('Demasiadas solicitudes. Espera un momento e intenta de nuevo.');
         }
-        if(res.status===400){
+        if(res.status===404||res.status===400){
           const err=await res.json().catch(()=>({}));
-          const emsg=err?.error?.message||'Solicitud inválida';
-          if(emsg.toLowerCase().includes('api key')||emsg.toLowerCase().includes('invalid'))
-            throw new Error('API Key inválida. Revisa la clave en Ajustes → Gemini API Key.');
-          throw new Error(`Error 400: ${emsg}`);
+          const emsg=err?.error?.message||'';
+          // Try next model if this one isn't available
+          if((emsg.toLowerCase().includes('not found')||emsg.toLowerCase().includes('not supported'))&&modelIdx<GEMINI_MODELS.length-1){
+            return callApi(modelIdx+1, 0);
+          }
+          if(emsg.toLowerCase().includes('api key')||emsg.toLowerCase().includes('api_key_invalid')||res.status===400&&emsg.toLowerCase().includes('invalid'))
+            throw new Error(`API Key inválida. Ve a Ajustes y pega de nuevo la clave de Google AI Studio.
+
+Detalle: ${emsg}`);
+          throw new Error(`Error ${res.status}: ${emsg}`);
         }
         if(res.status===403){
-          throw new Error('API Key sin permisos. Verifica que esté habilitada en Google AI Studio.');
+          const err=await res.json().catch(()=>({}));
+          const emsg=err?.error?.message||'Sin permisos';
+          throw new Error(`API Key sin permisos para usar Gemini.
+
+Detalle: ${emsg}`);
         }
         if(!res.ok){
           const err=await res.json().catch(()=>({}));
@@ -787,7 +798,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
 
       const d=await callApi();
       const candidate=d.candidates?.[0];
-      // gemini-2.5+ returns thought parts (thought:true) before the actual text — skip them
+      // gemini returns thought parts (2.5+ models) (thought:true) before the actual text — skip them
       const textPart=candidate?.content?.parts?.find(p=>!p.thought && p.text?.trim());
       if(!textPart?.text){
         const reason=candidate?.finishReason||d.promptFeedback?.blockReason||'desconocido';
