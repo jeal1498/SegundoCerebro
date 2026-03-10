@@ -303,7 +303,7 @@ function App() {
         ::-webkit-scrollbar-track{background:transparent;}
         ::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px;}
         @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
-        @keyframes sbSlideUp{from{opacity:0;transform:translateX(-50%) translateY(16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+        @keyframes sbSlideUp{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
         input[type=date]::-webkit-calendar-picker-indicator{filter:${isDark?'invert(0.5)':'none'};}
         select option{background:${T.surface};color:${T.text};}
       `}</style>
@@ -452,11 +452,9 @@ function App() {
 
       {/* ── Capture Modal ── */}
       {showCapture && (
-        <div style={{ position:'fixed',inset:0,zIndex:500,background:'rgba(0,0,0,.55)',display:'flex',alignItems:'flex-end',justifyContent:'center' }}
+        <div style={{ position:'fixed',inset:0,zIndex:500,background:'rgba(0,0,0,.6)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px 16px' }}
           onClick={e => { if(e.target===e.currentTarget) setShowCapture(false); }}>
-          <div style={{ width:'100%',maxWidth:480,background:T.surface,borderRadius:'20px 20px 0 0',padding:'20px 20px 36px',animation:'sbSlideUp .22s cubic-bezier(.34,1.56,.64,1)' }}>
-            {/* Handle */}
-            <div style={{ width:36,height:4,borderRadius:2,background:T.border,margin:'0 auto 20px' }}/>
+          <div style={{ width:'100%',maxWidth:420,background:T.surface,borderRadius:24,padding:'24px 20px 20px',boxShadow:'0 24px 60px rgba(0,0,0,.5)',animation:'sbSlideUp .22s cubic-bezier(.34,1.56,.64,1)' }}>
             <div style={{ fontFamily:"'Sora',sans-serif",fontSize:15,fontWeight:700,color:T.text,marginBottom:16 }}>Captura rápida</div>
 
             {/* Destination pills */}
