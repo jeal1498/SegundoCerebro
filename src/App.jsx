@@ -148,9 +148,90 @@ function App() {
       const loaded = await Promise.all(keys.map(k => load(k, def[k])));
       const result = {};
       keys.forEach((k, i) => { result[k] = loaded[i]; });
+
+      // ── Inyectar objetivo tutorial si no existe ──
+      const TUTORIAL_OBJ_ID = 'sb_tutorial_obj';
+      if (!result.objectives.find(o => o.id === TUTORIAL_OBJ_ID)) {
+        const todayStr = today();
+        const tutObj = {
+          id: TUTORIAL_OBJ_ID,
+          title: '🎓 Aprender Segundo Cerebro',
+          areaId: '', deadline: '2026-12-31', status: 'active',
+          milestones: [], notes: 'Completa estas acciones para dominar tu sistema personal.'
+        };
+        const tutTasks = [
+          { id:'tut_1', title:'📥 Captura algo en el Inbox',       status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Inbox → toca + y escribe cualquier idea o pendiente.' },
+          { id:'tut_2', title:'📝 Crea tu primera nota',           status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Notas → Nueva nota → guarda con cualquier contenido.' },
+          { id:'tut_3', title:'✅ Completa un hábito hoy',         status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Salud → Hábitos → marca uno como completado hoy.' },
+          { id:'tut_4', title:'📁 Crea un proyecto',               status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Tareas → Proyectos → crea un nuevo proyecto.' },
+          { id:'tut_5', title:'💸 Registra un gasto',              status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Finanzas → Nueva transacción → registra cualquier gasto.' },
+          { id:'tut_6', title:'📔 Escribe en tu diario',           status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Inicio → Diario → escribe tu primera entrada.' },
+          { id:'tut_7', title:'🎯 Crea un objetivo propio',        status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Ve a Objetivos → Nuevo objetivo → algo que quieras lograr.' },
+          { id:'tut_8', title:'🧠 Envía un mensaje a Psicke',      status:'todo', priority:'normal', projectId:'', objectiveId:TUTORIAL_OBJ_ID, createdAt:todayStr, dueDate:'', subtasks:[], notes:'Toca el botón de Psicke en la barra inferior y escríbele algo.' },
+        ];
+        result.objectives = [...result.objectives, tutObj];
+        result.tasks = [...result.tasks, ...tutTasks];
+        save('objectives', result.objectives);
+        save('tasks', result.tasks);
+      }
+
       setData(result);
     })();
   }, []);
+
+  // ── Auto-completar tareas del tutorial ──
+  useEffect(() => {
+    if (!data) return;
+    const TUTORIAL_OBJ_ID = 'sb_tutorial_obj';
+    const tutTasks = data.tasks.filter(t => t.objectiveId === TUTORIAL_OBJ_ID && t.status !== 'done');
+    if (tutTasks.length === 0) return;
+
+    const psickeUsed = (() => { try { return localStorage.getItem('sb_psicke_used') === '1'; } catch { return false; } })();
+
+    const checks = {
+      tut_1: data.inbox.length > 1,
+      tut_2: data.notes.length > 1,
+      tut_3: data.habits.some(h => h.completions && h.completions.length > 0),
+      tut_4: data.projects.length > 0,
+      tut_5: data.transactions.length > 0,
+      tut_6: data.journal.length > 0,
+      tut_7: data.objectives.filter(o => o.id !== TUTORIAL_OBJ_ID).length > 1,
+      tut_8: psickeUsed,
+    };
+
+    const toComplete = tutTasks.filter(t => checks[t.id]);
+    if (toComplete.length === 0) return;
+
+    const labels = {
+      tut_1: '¡Inbox capturado!', tut_2: '¡Primera nota creada!',
+      tut_3: '¡Hábito completado!', tut_4: '¡Primer proyecto creado!',
+      tut_5: '¡Gasto registrado!', tut_6: '¡Diario iniciado!',
+      tut_7: '¡Objetivo creado!', tut_8: '¡Psicke activado!',
+    };
+
+    const updated = data.tasks.map(t =>
+      toComplete.find(tc => tc.id === t.id) ? { ...t, status: 'done' } : t
+    );
+
+    toComplete.forEach(t => toast.success(`🎓 ${labels[t.id] || 'Tarea completada'} +1 en tu objetivo tutorial`));
+
+    // ¿Completaste todo?
+    const allDone = updated.filter(t => t.objectiveId === TUTORIAL_OBJ_ID).every(t => t.status === 'done');
+    if (allDone) {
+      const updatedObjs = data.objectives.map(o =>
+        o.id === TUTORIAL_OBJ_ID ? { ...o, status: 'completed' } : o
+      );
+      setTimeout(() => toast.success('🏆 ¡Dominaste el Segundo Cerebro! Objetivo completado al 100%'), 800);
+      setData(d => ({ ...d, tasks: updated, objectives: updatedObjs }));
+      save('tasks', updated);
+      save('objectives', updatedObjs);
+    } else {
+      setData(d => ({ ...d, tasks: updated }));
+      save('tasks', updated);
+    }
+  }, [data?.inbox?.length, data?.notes?.length, data?.habits, data?.projects?.length,
+      data?.transactions?.length, data?.journal?.length, data?.objectives?.length,
+      data?.tasks]);
 
   // ── Navigation ──
   const goToView = useCallback((v, hint = null) => {
