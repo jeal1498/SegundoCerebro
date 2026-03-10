@@ -5,7 +5,16 @@ import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
-import { OB_AREAS } from './Onboarding.jsx';
+// Inline area definitions (Onboarding.jsx removed)
+const OB_AREAS = [
+  {id:'salud',       emoji:'💪', label:'Salud'},
+  {id:'trabajo',     emoji:'💼', label:'Trabajo'},
+  {id:'finanzas',    emoji:'💰', label:'Finanzas'},
+  {id:'hogar',       emoji:'🏠', label:'Hogar'},
+  {id:'desarrollo',  emoji:'🧠', label:'Desarrollo Personal'},
+  {id:'relaciones',  emoji:'👥', label:'Relaciones'},
+  {id:'sideproj',    emoji:'🚀', label:'Side Projects'},
+];
 import { scheduleNotification, getPermission, requestPermission, checkOnFocus } from '../utils/notifications.js';
 
 const GEMINI_MODEL = 'gemini-2.0-flash';
