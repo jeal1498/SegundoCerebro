@@ -7,7 +7,7 @@ import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../c
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 
 // ===================== GEMINI CONFIG =====================
-const GEMINI_MODEL='gemini-2.0-flash';
+const GROQ_MODEL='llama-3.3-70b-versatile';
 
 
 // ===================== SETTINGS =====================
@@ -45,16 +45,20 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
     setTesting(true);setTestResult(null);setTestMsg('');
     try{
       const res=await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${k}`,
-        {method:'POST',headers:{'Content-Type':'application/json'},
-         body:JSON.stringify({contents:[{role:'user',parts:[{text:'Di hola.'}]}],generationConfig:{maxOutputTokens:10}})}
+        'https://api.groq.com/openai/v1/chat/completions',
+        {method:'POST',
+         headers:{'Content-Type':'application/json','Authorization':`Bearer ${k}`},
+         body:JSON.stringify({model:GROQ_MODEL,messages:[{role:'user',content:'Di hola.'}],max_tokens:10})}
       );
       if(res.ok){
         setTestResult('ok');
-        setTestMsg('✅ API Key válida y funcionando correctamente.');
+        setTestMsg('✅ API Key de Groq válida y funcionando correctamente.');
         localStorage.setItem('sb_gemini_key',k);
         setApiKey(k);setSaved(true);
         setTimeout(()=>setSaved(false),2500);
+      } else if(res.status===401){
+        setTestResult('error');
+        setTestMsg('❌ API Key inválida. Ve a console.groq.com → API Keys y copia la clave completa.');
       } else {
         const err=await res.json().catch(()=>({}));
         setTestResult('error');
@@ -250,8 +254,8 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
                 <Icon name="key" size={20} color={T.accent}/>
               </div>
               <div>
-                <div style={{color:T.text,fontWeight:600,fontSize:15}}>Google Gemini API Key</div>
-                <div style={{color:T.muted,fontSize:12,marginTop:2}}>Necesaria para el asistente IA</div>
+                <div style={{color:T.text,fontWeight:600,fontSize:15}}>Groq API Key</div>
+                <div style={{color:T.muted,fontSize:12,marginTop:2}}>Necesaria para el asistente IA · <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{color:T.accent,textDecoration:"none"}}>Obtener gratis ↗</a></div>
               </div>
               <div style={{marginLeft:'auto',width:10,height:10,borderRadius:'50%',background:apiKey?T.green:T.dim}}/>
             </div>
@@ -278,7 +282,7 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
                   autoComplete={apiKey?'current-password':'new-password'}
                   value={val}
                   onChange={e=>setVal(e.target.value)}
-                  placeholder="AIza..."
+                  placeholder="gsk_..."
                   style={{width:'100%',background:T.bg,border:`1px solid ${T.border}`,color:T.text,padding:'10px 60px 10px 14px',borderRadius:10,fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}
                 />
                 <button
