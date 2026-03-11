@@ -80,6 +80,25 @@ const buildPsickePrompt=(data,challenge)=>{
   const carExpStr=(data.carExpenses||[]).slice(0,4).map(e=>`• ${e.concept}: $${e.amount} (${e.date||''})`).join('\n');
   const farmaciaStr=(data.farmaciaItems||[]).map(f=>`• ${f.name}: ${f.quantity} ${f.unit}${f.expiresAt?' vence '+f.expiresAt:''}`).join('\n');
 
+  // ── Sueño ──
+  const sleepRecent=(data.sleepLog||[]).slice(0,3).map(s=>`• ${s.date}: ${s.hoursSlept}h · calidad ${s.quality}/5`).join('\n');
+
+  // ── Compras ──
+  const shoppingPending=(data.shopping||[]).filter(i=>!i.done).map(i=>`• ${i.qty} ${i.unit} ${i.name}${i.category?' ['+i.category+']':''}`).join('\n');
+
+  // ── Entretenimiento ──
+  const watchingNow=(data.entertainment||[]).filter(e=>e.status==='watching').map(e=>`• ${e.title} (${e.type==='movie'?'Película':'Serie'})`).join('\n');
+  const wantToWatch=(data.entertainment||[]).filter(e=>e.status==='want').slice(0,4).map(e=>`• ${e.title}`).join('\n');
+
+  // ── Mascotas ──
+  const petsSummary=(data.pets||[]).map(p=>`• ${p.type} ${p.name}${p.breed?' ('+p.breed+')':''}`).join('\n');
+
+  // ── Viajes ──
+  const tripsSummary=(data.trips||[]).slice(0,4).map(t=>`• ${t.emoji} ${t.destination} [${t.status}]${t.startDate?' · '+t.startDate:''}`).join('\n');
+
+  // ── Educación ──
+  const eduSubjects=(data.education||[]).map(s=>`• ${s.icon} ${s.name} (${(s.notes||[]).length} apuntes)`).join('\n');
+
   return `Eres Psicke — la IA que vive dentro del Segundo Cerebro del usuario. No eres un chatbot genérico; eres SU extensión mental.
 
 HOY: ${t}
@@ -181,6 +200,27 @@ ${activeProjects||'(sin proyectos activos)'}
 Tareas pendientes:
 ${spTasksPending||'(sin tareas de proyectos)'}
 
+── SUEÑO ──
+Últimas noches:
+${sleepRecent||'(sin registros)'}
+
+── COMPRAS ──
+Lista pendiente:
+${shoppingPending||'(lista vacía)'}
+
+── ENTRETENIMIENTO ──
+Viendo ahora: ${watchingNow||'(nada)'}
+Por ver: ${wantToWatch||'(lista vacía)'}
+
+── MASCOTAS ──
+${petsSummary||'(sin mascotas registradas)'}
+
+── VIAJES ──
+${tripsSummary||'(sin viajes)'}
+
+── EDUCACIÓN ──
+${eduSubjects||'(sin materias)'}
+
 ╔═══════════════════════════════════════════════════╗
 ║   PROTOCOLO DE RAZONAMIENTO INTERNO OBLIGATORIO   ║
 ╚═══════════════════════════════════════════════════╝
@@ -272,6 +312,60 @@ Identifica el módulo exacto donde guardar:
   23. Logro o hito de un proyecto → SAVE_MILESTONE
       (projectName, title, date, notes)
 
+  SUEÑO:
+  24. Registro de noche dormida → SAVE_SLEEP_LOG
+      (date, bedTime, wakeTime, hoursSlept, quality 1-5, interruptions, notes)
+  25. Sueño o ensueño vivido → SAVE_DREAM
+      (date, title, description, type: Agradable|Pesadilla|Lúcido|Neutro, emotions, tags)
+
+  COMPRAS:
+  26. Ítem para lista de compras → SAVE_SHOPPING_ITEM
+      (name, qty, unit, category)
+      Units: pza, kg, g, L, mL, caja, bolsa, lata, frasco, paq
+      Categorías: Despensa, Frutas, Verduras, Lácteos, Limpieza, Higiene, Bebidas, Carnes, Otro
+
+  ENTRETENIMIENTO:
+  27. Película, serie o contenido → SAVE_ENTERTAINMENT
+      (title, type: movie|series|doc|anime|podcast, status: want|watching|done|dropped,
+       platform, genre, rating 1-5, year, seasons, currentSeason, currentEp, totalEps, notes)
+
+  VIAJES:
+  28. Destino o viaje → SAVE_TRIP
+      (destination, country, status: wishlist|planned|done, startDate, endDate,
+       transport, accommodation, budget, actualCost, notes, emoji)
+  29. Gasto de un viaje → SAVE_TRIP_EXPENSE
+      (tripDestination, category, amount, currency, description, date)
+      Categorías: Transporte, Alojamiento, Comida, Actividades, Seguro, Visas, Shopping, Otro
+
+  NUTRICIÓN:
+  30. Receta nueva → SAVE_RECIPE
+      (name, category, difficulty: Fácil|Media|Difícil, time, servings, calories,
+       tags, description, ingredients[], steps[], favorite)
+      Categorías: Desayuno, Comida, Cena, Snack, Postre, Bebida, Otro
+
+  EDUCACIÓN:
+  31. Apunte o nota de clase → SAVE_EDUCATION_NOTE
+      (subjectName, title, content, tags, type: apunte|resumen|ejercicio|examen)
+
+  MASCOTAS:
+  32. Nueva mascota → SAVE_PET
+      (name, type: 🐶 Perro|🐱 Gato|🐦 Ave|🐠 Pez|🐹 Roedor|🐢 Reptil|🐇 Conejo|Otro,
+       breed, birthDate, weight, color, notes)
+  33. Vacuna aplicada → SAVE_PET_VAC
+      (petName, name, date, nextDate, status: done|pending|scheduled, clinic, cost, notes)
+  34. Visita al veterinario → SAVE_PET_VET
+      (petName, date, reason, clinic, vet, diagnosis, treatment, cost, nextVisit, notes)
+
+  HÁBITOS (control):
+  35. Marcar hábito como completado hoy → MARK_HABIT_DONE
+      (habitName) — fuzzy match por nombre
+  36. Actualizar estado de tarea → UPDATE_TASK_STATUS
+      (taskTitle, status: done|todo|inprogress|cancelled) — fuzzy match por título
+
+  RECORDATORIOS COCHE:
+  37. Recordatorio para el coche → SAVE_CAR_REMINDER
+      (title, dueDate, notes)
+
 ═══════════════════════════════════════════════════════
 REGLAS OBLIGATORIAS MULTI-MÓDULO — MEMORIZA ESTO
 ═══════════════════════════════════════════════════════
@@ -298,6 +392,27 @@ FINANZAS:
 PROYECTOS:
 • Nuevo proyecto personal → SAVE_SIDE_PROJECT + SAVE_TASK (primera acción)
 • Logro en proyecto → SAVE_MILESTONE + actualizar SAVE_SP_TASK si era tarea pendiente
+
+SUEÑO:
+• "Dormí X horas" → SAVE_SLEEP_LOG (estimar bedTime/wakeTime si no se dan)
+• "Tuve un sueño raro" → SAVE_DREAM
+
+COMPRAS:
+• Cualquier "agrega X a la lista" → SAVE_SHOPPING_ITEM
+• Receta que requiere ingredientes → SAVE_RECIPE + opcionalmente SAVE_SHOPPING_ITEM por ingrediente faltante
+
+ENTRETENIMIENTO:
+• "Vi Inception" / "Terminé de ver X" → SAVE_ENTERTAINMENT (status: done, pide rating)
+• "Quiero ver X" → SAVE_ENTERTAINMENT (status: want)
+• "Estoy viendo X" → SAVE_ENTERTAINMENT (status: watching)
+
+HÁBITOS / TAREAS (control conversacional):
+• "Ya hice X" donde X es un hábito → MARK_HABIT_DONE
+• "Terminé la tarea X" → UPDATE_TASK_STATUS (status: done)
+• "Empecé la tarea X" → UPDATE_TASK_STATUS (status: inprogress)
+
+MASCOTAS:
+• Visita al vet con costo → SAVE_PET_VET + SAVE_TRANSACTION(egreso, Salud)
 
 ═══════════════════════════════════════════════════════
 
@@ -436,6 +551,69 @@ Plan completo (solo tras confirmación): \`\`\`json
   "tasks":[{"title":"Inscribirme al gym","priority":"alta"}],
   "habits":[{"name":"Ejercicio 30 min","frequency":"daily"}]
 }}
+\`\`\`
+
+Sueño: \`\`\`json
+{"action":"SAVE_SLEEP_LOG","data":{"date":"${t}","bedTime":"23:30","wakeTime":"07:00","hoursSlept":"7.5","quality":4,"interruptions":0,"notes":"Dormí bien"}}
+\`\`\`
+
+Entretenimiento - película vista: \`\`\`json
+{"action":"SAVE_ENTERTAINMENT","data":{"title":"Inception","type":"movie","status":"done","platform":"Netflix","genre":"Ciencia ficción","rating":5,"year":"2010","notes":"Obra maestra de Nolan"}}
+\`\`\`
+
+Entretenimiento - serie por ver: \`\`\`json
+{"action":"SAVE_ENTERTAINMENT","data":{"title":"Breaking Bad","type":"series","status":"want","platform":"Netflix","genre":"Drama","notes":""}}
+\`\`\`
+
+Compra: \`\`\`json
+{"action":"SAVE_SHOPPING_ITEM","data":{"name":"Leche","qty":2,"unit":"L","category":"Lácteos"}}
+\`\`\`
+
+Hábito completado hoy: \`\`\`json
+{"action":"MARK_HABIT_DONE","data":{"habitName":"Caminar 30 min"}}
+\`\`\`
+
+Tarea completada: \`\`\`json
+{"action":"UPDATE_TASK_STATUS","data":{"taskTitle":"Llamar al mecánico","status":"done"}}
+\`\`\`
+
+Viaje deseado: \`\`\`json
+{"action":"SAVE_TRIP","data":{"destination":"Tokio","country":"Japón","status":"wishlist","emoji":"✈️","notes":"Primavera para los cerezos"}}
+\`\`\`
+
+Viaje planificado: \`\`\`json
+{"action":"SAVE_TRIP","data":{"destination":"Ciudad de México","country":"México","status":"planned","startDate":"2026-04-15","endDate":"2026-04-20","transport":"✈️ Avión","budget":"5000","emoji":"🏙️","notes":"Visitar a familia"}}
+\`\`\`
+
+Gasto de viaje: \`\`\`json
+{"action":"SAVE_TRIP_EXPENSE","data":{"tripDestination":"Tokio","category":"Vuelo","amount":15000,"currency":"MXN","description":"Vuelo redondo","date":"${t}"}}
+\`\`\`
+
+Receta: \`\`\`json
+{"action":"SAVE_RECIPE","data":{"name":"Tacos de pastor","category":"Comida","difficulty":"Media","time":"45","servings":"4","calories":"650","tags":"mexicano,carne","description":"Clásico tacos al pastor","ingredients":["500g carne de cerdo","piña","cebolla","cilantro","tortillas"],"steps":["Marinar la carne 2h","Asar en trompo","Servir con guarniciones"],"favorite":false}}
+\`\`\`
+
+Apunte educativo: \`\`\`json
+{"action":"SAVE_EDUCATION_NOTE","data":{"subjectName":"JavaScript","title":"Closures explicados","content":"Un closure es una función que recuerda el entorno léxico donde fue creada","tags":"js,funciones","type":"apunte"}}
+\`\`\`
+
+Mascota nueva: \`\`\`json
+{"action":"SAVE_PET","data":{"name":"Luna","type":"🐱 Gato","breed":"Siamés","birthDate":"2022-03-10","weight":"4","color":"crema","notes":"Le encanta dormir en el sillón"}}
+\`\`\`
+
+Vacuna de mascota: \`\`\`json
+{"action":"SAVE_PET_VAC","data":{"petName":"Luna","name":"Antirrábica","date":"${t}","nextDate":"2027-03-10","status":"done","clinic":"VetCare","cost":"450","notes":""}}
+\`\`\`
+
+Visita veterinaria (con gasto): \`\`\`json
+{"action":"SAVE_PET_VET","data":{"petName":"Luna","date":"${t}","reason":"Revisión anual","clinic":"VetCare","vet":"Dr. García","diagnosis":"Sana","treatment":"Desparasitación","cost":"850","nextVisit":"2027-03-10","notes":""}}
+\`\`\`
+\`\`\`json
+{"action":"SAVE_TRANSACTION","data":{"type":"egreso","amount":850,"currency":"MXN","category":"Salud","description":"Revisión veterinaria Luna","date":"${t}"}}
+\`\`\`
+
+Recordatorio coche: \`\`\`json
+{"action":"SAVE_CAR_REMINDER","data":{"title":"Renovar tenencia","dueDate":"2026-12-31","notes":"Hacerlo antes de diciembre"}}
 \`\`\`
 
 ═══ CONSULTAS SOBRE DATOS ═══
@@ -615,13 +793,13 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     try { localStorage.setItem('psicke_msgs', JSON.stringify(m)); } catch(e) {}
     try { window.storage?.set('psicke_msgs', JSON.stringify(m)); } catch(e) {}
   };
-  const clearMsgs=()=>{saveMsgs([INIT_MSG]);};
+  const clearMsgs=()=>{ if(!window.confirm('¿Borrar todo el historial de conversación?'))return; saveMsgs([INIT_MSG]); };
 
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[msgs,open]);
   useEffect(()=>{if(open)setTimeout(()=>inputRef.current?.focus(),300);},[open]);
 
   // ── Challenge profile ──────────────────────────────────────────────────
-  const challenge=(()=>{ try{ return localStorage.getItem('sb_challenge')||null; }catch{ return null; } })();
+  const challenge=useMemo(()=>{ try{ return localStorage.getItem('sb_challenge')||null; }catch{ return null; } },[]);
 
   // ── Daily auto-summary — fires once per day when panel opens ──
   useEffect(()=>{
@@ -700,7 +878,8 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     // Sort by challenge priority (lower = first)
     return all.sort((a,b)=>(a.priority||9)-(b.priority||9)).slice(0,4).map(({id,priority,...rest})=>rest);
   };
-  const suggestions=buildSuggestions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const suggestions=useMemo(()=>buildSuggestions(),[data.tasks,data.objectives,data.habits,data.inbox,data.people]);
 
   // ── Slash commands ──
   const SLASH_CMDS=[
@@ -729,7 +908,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     if(!text||loading)return;
     setShowSugg(false);
     const key=(apiKey||'').trim().replace(/\s+/g,'');
-    console.log('[Psicke] key length:', key.length, 'starts:', key.slice(0,6));
     if(!key){setOpen(false);onGoSettings();return;}
     if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes y pega la clave completa desde Google AI Studio.'}]); return; }
     const userMsg={role:'user',content:text};
@@ -1090,6 +1268,171 @@ Detalle: ${emsg}`);
           const upd=[f,...(updData.farmaciaItems||[])];
           updData={...updData,farmaciaItems:upd};save('farmaciaItems',upd);
           return `💊 Botiquín: ${f.name} · ${f.quantity} ${f.unit}${f.expiresAt?' vence '+f.expiresAt:''}`;
+
+        // ── SAVE_SLEEP_LOG ──
+        }else if(action.action==='SAVE_SLEEP_LOG'){
+          const s={id:uid(),date:action.data.date||td,
+            bedTime:action.data.bedTime||'23:00',wakeTime:action.data.wakeTime||'07:00',
+            hoursSlept:Number(action.data.hoursSlept)||0,quality:Number(action.data.quality)||3,
+            interruptions:Number(action.data.interruptions)||0,
+            hygiene:action.data.hygiene||[],notes:action.data.notes||''};
+          const upd=[s,...(updData.sleepLog||[])];
+          updData={...updData,sleepLog:upd};save('sleepLog',upd);
+          return `😴 Sueño registrado · ${s.hoursSlept}h · calidad ${s.quality}/5`;
+
+        // ── SAVE_DREAM ──
+        }else if(action.action==='SAVE_DREAM'&&action.data.description){
+          const d2={id:uid(),date:action.data.date||td,title:action.data.title||'Sueño',
+            description:action.data.description,type:action.data.type||'Neutro',
+            emotions:action.data.emotions||'',tags:action.data.tags||''};
+          const upd=[d2,...(updData.dreamJournal||[])];
+          updData={...updData,dreamJournal:upd};save('dreamJournal',upd);
+          return `💭 Sueño anotado: "${d2.title}"`;
+
+        // ── SAVE_SHOPPING_ITEM ──
+        }else if(action.action==='SAVE_SHOPPING_ITEM'&&action.data.name){
+          const i={id:uid(),name:action.data.name,qty:Number(action.data.qty)||1,
+            unit:action.data.unit||'pza',category:action.data.category||'',
+            done:false,createdAt:td};
+          const upd=[...(updData.shopping||[]),i];
+          updData={...updData,shopping:upd};save('shopping',upd);
+          return `🛒 Lista de compras: ${i.qty} ${i.unit} ${i.name}`;
+
+        // ── SAVE_ENTERTAINMENT ──
+        }else if(action.action==='SAVE_ENTERTAINMENT'&&action.data.title){
+          const e={id:uid(),title:action.data.title,type:action.data.type||'movie',
+            status:action.data.status||'want',platform:action.data.platform||'',
+            genre:action.data.genre||'',rating:Number(action.data.rating)||0,
+            seasons:action.data.seasons||'',currentSeason:action.data.currentSeason||'1',
+            currentEp:action.data.currentEp||'1',totalEps:action.data.totalEps||'',
+            synopsis:action.data.synopsis||'',notes:action.data.notes||'',
+            year:action.data.year||'',addedAt:td};
+          const upd=[e,...(updData.entertainment||[])];
+          updData={...updData,entertainment:upd};save('entertainment',upd);
+          const statusMap={want:'🌟 por ver',watching:'▶️ viendo',done:'✅ visto',dropped:'❌ abandonado'};
+          return `🎬 ${e.type==='movie'?'Película':'Serie'}: "${e.title}" · ${statusMap[e.status]||e.status}${e.rating?' · ⭐'+e.rating:''}`;
+
+        // ── SAVE_TRIP ──
+        }else if(action.action==='SAVE_TRIP'&&action.data.destination){
+          const t={id:uid(),destination:action.data.destination,country:action.data.country||'',
+            status:action.data.status||'wishlist',startDate:action.data.startDate||'',
+            endDate:action.data.endDate||'',transport:action.data.transport||'',
+            accommodation:action.data.accommodation||'',budget:action.data.budget||'',
+            actualCost:action.data.actualCost||'',notes:action.data.notes||'',
+            emoji:action.data.emoji||'✈️',createdAt:td};
+          const upd=[t,...(updData.trips||[])];
+          updData={...updData,trips:upd};save('trips',upd);
+          const statusMap={wishlist:'🌟 deseo',planned:'📅 planificado',done:'✅ visitado'};
+          return `✈️ Viaje: ${t.emoji} ${t.destination}${t.country?' ('+t.country+')':''} · ${statusMap[t.status]||t.status}`;
+
+        // ── SAVE_TRIP_EXPENSE ──
+        }else if(action.action==='SAVE_TRIP_EXPENSE'&&action.data.amount){
+          // find tripId by destination name
+          const tripMatch=(updData.trips||[]).find(t=>t.destination.toLowerCase()===action.data.tripDestination?.toLowerCase());
+          const e={id:uid(),tripId:tripMatch?.id||'',category:action.data.category||'Otro',
+            amount:Number(action.data.amount)||0,currency:action.data.currency||'MXN',
+            description:action.data.description||'',date:action.data.date||td};
+          const upd=[e,...(updData.tripExpenses||[])];
+          updData={...updData,tripExpenses:upd};save('tripExpenses',upd);
+          return `✈️ Gasto viaje: $${e.amount} ${e.currency} · ${e.category}${tripMatch?' ('+tripMatch.destination+')':''}`;
+
+        // ── SAVE_RECIPE ──
+        }else if(action.action==='SAVE_RECIPE'&&action.data.name){
+          const r={id:uid(),name:action.data.name,category:action.data.category||'Otro',
+            difficulty:action.data.difficulty||'Fácil',time:action.data.time||'',
+            servings:action.data.servings||'2',calories:action.data.calories||'',
+            tags:action.data.tags||'',description:action.data.description||'',
+            ingredients:action.data.ingredients||[],steps:action.data.steps||[],
+            favorite:action.data.favorite||false,createdAt:td};
+          const upd=[r,...(updData.recipes||[])];
+          updData={...updData,recipes:upd};save('recipes',upd);
+          return `🍳 Receta: "${r.name}" · ${r.difficulty} · ${r.time||'?'} min`;
+
+        // ── SAVE_EDUCATION_NOTE ──
+        }else if(action.action==='SAVE_EDUCATION_NOTE'&&action.data.title){
+          // find subject by name, add note to its notes array
+          const edu=(updData.education||[]);
+          const subjectName=action.data.subjectName||'';
+          const subjectIdx=subjectName?edu.findIndex(s=>s.name.toLowerCase()===subjectName.toLowerCase()):-1;
+          const note={id:uid(),title:action.data.title,content:action.data.content||'',
+            tags:(action.data.tags||'').split(',').map(t=>t.trim()).filter(Boolean),
+            type:action.data.type||'apunte',createdAt:td};
+          let updEdu;
+          if(subjectIdx>=0){
+            updEdu=edu.map((s,i)=>i===subjectIdx?{...s,notes:[note,...(s.notes||[])]}:s);
+          }else{
+            // Create subject on the fly if given
+            const newSubject={id:uid(),name:subjectName||'General',icon:'📚',color:'#4da6ff',notes:[note],createdAt:td};
+            updEdu=[newSubject,...edu];
+          }
+          updData={...updData,education:updEdu};save('education',updEdu);
+          return `📚 Apunte: "${note.title}"${subjectName?' en '+subjectName:''}`;
+
+        // ── SAVE_PET ──
+        }else if(action.action==='SAVE_PET'&&action.data.name){
+          const p={id:uid(),name:action.data.name,type:action.data.type||'🐶 Perro',
+            breed:action.data.breed||'',birthDate:action.data.birthDate||'',
+            weight:action.data.weight||'',color:action.data.color||'',
+            notes:action.data.notes||'',createdAt:td};
+          const upd=[p,...(updData.pets||[])];
+          updData={...updData,pets:upd};save('pets',upd);
+          return `🐾 Mascota: ${p.type} ${p.name}${p.breed?' ('+p.breed+')':''}`;
+
+        // ── SAVE_PET_VAC ──
+        }else if(action.action==='SAVE_PET_VAC'&&action.data.name){
+          const petMatch=(updData.pets||[]).find(p=>p.name.toLowerCase()===action.data.petName?.toLowerCase());
+          const v={id:uid(),petId:petMatch?.id||'',name:action.data.name,
+            date:action.data.date||td,nextDate:action.data.nextDate||'',
+            status:action.data.status||'done',clinic:action.data.clinic||'',
+            cost:action.data.cost||'',notes:action.data.notes||''};
+          const upd=[v,...(updData.petVaccines||[])];
+          updData={...updData,petVaccines:upd};save('petVaccines',upd);
+          return `💉 Vacuna: ${v.name}${petMatch?' para '+petMatch.name:''}`;
+
+        // ── SAVE_PET_VET ──
+        }else if(action.action==='SAVE_PET_VET'&&action.data.reason){
+          const petMatch=(updData.pets||[]).find(p=>p.name.toLowerCase()===action.data.petName?.toLowerCase());
+          const v={id:uid(),petId:petMatch?.id||'',date:action.data.date||td,
+            reason:action.data.reason,clinic:action.data.clinic||'',vet:action.data.vet||'',
+            diagnosis:action.data.diagnosis||'',treatment:action.data.treatment||'',
+            cost:action.data.cost||'',nextVisit:action.data.nextVisit||'',notes:action.data.notes||''};
+          const upd=[v,...(updData.petVetVisits||[])];
+          updData={...updData,petVetVisits:upd};save('petVetVisits',upd);
+          return `🏥 Visita vet: ${v.reason}${petMatch?' · '+petMatch.name:''}${v.cost?' · $'+v.cost:''}`;
+
+        // ── MARK_HABIT_DONE ──
+        }else if(action.action==='MARK_HABIT_DONE'&&action.data.habitName){
+          const habits=updData.habits||[];
+          const kw=action.data.habitName.toLowerCase();
+          const match=habits.find(h=>h.name.toLowerCase().includes(kw)||kw.includes(h.name.toLowerCase()));
+          if(match&&!match.completions?.includes(td)){
+            const updHabits=habits.map(h=>h.id===match.id?{...h,completions:[...(h.completions||[]),td]}:h);
+            updData={...updData,habits:updHabits};save('habits',updHabits);
+            return `🔥 Hábito completado: ${match.name}`;
+          }
+          return match?`ℹ️ ${match.name} ya estaba marcado hoy`:`⚠️ Hábito no encontrado: ${action.data.habitName}`;
+
+        // ── UPDATE_TASK_STATUS ──
+        }else if(action.action==='UPDATE_TASK_STATUS'&&action.data.taskTitle){
+          const tasks=updData.tasks||[];
+          const kw=action.data.taskTitle.toLowerCase();
+          const match=tasks.find(t=>t.title.toLowerCase().includes(kw)||kw.includes(t.title.toLowerCase()));
+          if(match){
+            const newStatus=action.data.status||'done';
+            const updTasks=tasks.map(t=>t.id===match.id?{...t,status:newStatus}:t);
+            updData={...updData,tasks:updTasks};save('tasks',updTasks);
+            const statusEmoji={done:'✅',todo:'⬜',inprogress:'🔄',cancelled:'❌'}[newStatus]||'✅';
+            return `${statusEmoji} Tarea "${match.title}" → ${newStatus}`;
+          }
+          return `⚠️ Tarea no encontrada: ${action.data.taskTitle}`;
+
+        // ── SAVE_CAR_REMINDER ──
+        }else if(action.action==='SAVE_CAR_REMINDER'&&action.data.title){
+          const r={id:uid(),title:action.data.title,dueDate:action.data.dueDate||'',
+            notes:action.data.notes||'',done:false,createdAt:td};
+          const upd=[r,...(updData.carReminders||[])];
+          updData={...updData,carReminders:upd};save('carReminders',upd);
+          return `⏰ Recordatorio coche: ${r.title}${r.dueDate?' · '+r.dueDate:''}`;
         }
         return null;
       };
@@ -1337,7 +1680,7 @@ Detalle: ${emsg}`);
                             cursor:isUser?'pointer':'default',
                             transition:'opacity 0.15s',
                             opacity:isUser&&showMenu?0.85:1}}>
-                          {m.content}
+                          <span dangerouslySetInnerHTML={{__html:renderMd(m.content||'')}}/>
                         </div>
                       )}
                     </div>
@@ -1450,15 +1793,17 @@ Detalle: ${emsg}`);
                   color:recording?T.red:T.muted,flexShrink:0,transition:'all 0.2s'}}>
                   <Icon name={recording?'micoff':'mic'} size={16} color={recording?T.red:undefined}/>
                 </button>
-                <input ref={inputRef} value={input} onChange={e=>{handleInput(e.target.value);}}
+                <textarea ref={inputRef} value={input}
+                  onChange={e=>{handleInput(e.target.value);e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px';}}
                   onKeyDown={e=>{
                     if(e.key==='Escape'){setSlashMenu(false);return;}
-                    if(e.key==='Enter'&&!e.shiftKey){setSlashMenu(false);send();}
+                    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();setSlashMenu(false);send();}
                   }}
-                  autoComplete="off" autoCorrect="off" spellCheck="false"
+                  autoComplete="off" autoCorrect="off" spellCheck="false" rows={1}
                   placeholder="Pregunta, idea o escribe / para comandos..."
                   style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,color:T.text,
-                    padding:'10px 14px',borderRadius:12,fontSize:14,outline:'none',fontFamily:'inherit'}}/>
+                    padding:'10px 14px',borderRadius:12,fontSize:14,outline:'none',fontFamily:'inherit',
+                    resize:'none',lineHeight:1.5,overflow:'hidden',minHeight:42,maxHeight:120}}/>
                 <button onClick={()=>{setSlashMenu(false);send();}} disabled={!input.trim()||loading}
                   aria-label="Enviar mensaje"
                   style={{width:38,height:38,borderRadius:'50%',flexShrink:0,
