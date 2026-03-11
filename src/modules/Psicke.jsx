@@ -17,7 +17,7 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
+const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
@@ -1591,32 +1591,30 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
               </div>
             </div>
 
-            {/* Back arrow + Suggestions */}
-            {!showSugg&&msgs.length>1&&(
-              <div style={{padding:'0 16px 6px',flexShrink:0}}>
-                <button onClick={()=>setShowSugg(true)}
-                  style={{display:'flex',alignItems:'center',gap:5,background:'none',border:'none',color:T.muted,cursor:'pointer',padding:'4px 0',fontSize:12,fontFamily:'inherit',transition:'color 0.15s'}}
+            {/* Suggestions — collapsible */}
+            {suggestions.length>0&&(
+              <div style={{padding:'0 14px 6px',flexShrink:0}}>
+                <button onClick={()=>setShowSugg(s=>!s)}
+                  style={{display:'flex',alignItems:'center',gap:5,background:'none',border:'none',color:T.muted,cursor:'pointer',padding:'2px 0 6px',fontSize:11,fontFamily:'inherit',fontWeight:700,letterSpacing:0.8,textTransform:'uppercase',width:'100%',transition:'color 0.15s'}}
                   onMouseEnter={e=>e.currentTarget.style.color=T.accent}
                   onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
-                  ← Sugerencias
+                  <span style={{flex:1,textAlign:'left'}}>Sugerencias</span>
+                  <span style={{fontSize:13,transform:showSugg?'rotate(0deg)':'rotate(-90deg)',transition:'transform 0.2s',display:'inline-block'}}>▾</span>
                 </button>
-              </div>
-            )}
-            {showSugg&&suggestions.length>0&&(
-              <div style={{padding:'0 14px 10px',flexShrink:0}}>
-                <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',letterSpacing:0.8,marginBottom:7}}>Sugerencias</div>
-                <div style={{display:'flex',flexDirection:'column',gap:5}}>
-                  {suggestions.map((s,i)=>(
-                    <div key={i} onClick={()=>{setInput(s.q);setShowSugg(false);setTimeout(()=>inputRef.current?.focus(),50);}}
-                      style={{display:'flex',alignItems:'center',gap:9,padding:'8px 11px',background:T.surface2,border:`1px solid ${s.color}28`,borderLeft:`3px solid ${s.color}`,borderRadius:9,cursor:'pointer',transition:'all 0.15s'}}
-                      onMouseEnter={e=>e.currentTarget.style.background='#162030'}
-                      onMouseLeave={e=>e.currentTarget.style.background=T.surface2}>
-                      <span style={{fontSize:15,flexShrink:0}}>{s.icon}</span>
-                      <span style={{fontSize:12,color:T.text,flex:1,lineHeight:1.4}}>{s.text}</span>
-                      <span style={{fontSize:10,color:s.color,fontWeight:700,flexShrink:0}}>→</span>
-                    </div>
-                  ))}
-                </div>
+                {showSugg&&(
+                  <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                    {suggestions.map((s,i)=>(
+                      <div key={i} onClick={()=>{setInput(s.q);setShowSugg(false);setTimeout(()=>inputRef.current?.focus(),50);}}
+                        style={{display:'flex',alignItems:'center',gap:9,padding:'8px 11px',background:T.surface2,border:`1px solid ${s.color}28`,borderLeft:`3px solid ${s.color}`,borderRadius:9,cursor:'pointer',transition:'all 0.15s'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='#162030'}
+                        onMouseLeave={e=>e.currentTarget.style.background=T.surface2}>
+                        <span style={{fontSize:15,flexShrink:0}}>{s.icon}</span>
+                        <span style={{fontSize:12,color:T.text,flex:1,lineHeight:1.4}}>{s.text}</span>
+                        <span style={{fontSize:10,color:s.color,fontWeight:700,flexShrink:0}}>→</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {/* Messages */}
