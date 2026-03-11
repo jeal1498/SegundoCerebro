@@ -17,19 +17,19 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama3-70b-8192'];
+const GROQ_MODELS = ['llama-3.3-70b-versatile'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
   const t=today();
   const notesSummary=(data.notes||[]).slice(0,4).map(n=>{
-    let s=`• ${n.title.slice(0,30)}`;
+    let s=`• ${n.title.slice(0,25)}`;
     if(n.amount)s+=` $${n.amount}`;
     if(n.tags?.length)s+=` [${n.tags.slice(0,2).join(',')}]`;
     return s;
   }).join('\n');
   const tasksPending=(data.tasks||[]).filter(t=>t.status==='todo');
-  const tasksSummary=tasksPending.slice(0,4).map(t=>`• ${t.title.slice(0,30)}${t.deadline?' ('+t.deadline+')':''}`).join('\n');
+  const tasksSummary=tasksPending.slice(0,4).map(t=>`• ${t.title.slice(0,25)}${t.deadline?' ('+t.deadline+')':''}`).join('\n');
   const inboxPending=(data.inbox||[]).filter(i=>!i.processed);
   const habitNames=(data.habits||[]).map(h=>h.name).join(', ');
   const areaNames=(data.areas||[]).map(a=>`${a.icon} ${a.name}`).join(', ');
@@ -1153,7 +1153,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     try{
       const sysPrompt=buildPsickePrompt(data,challenge);
       // Clean conversation for API: strip save labels, keep last 8 msgs (OpenAI format)
-      const cleanMsgs=next.slice(-6).map(m=>({
+      const cleanMsgs=next.slice(-4).map(m=>({
         role:m.role==='assistant'?'assistant':'user',
         content:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '
       }));
@@ -1166,7 +1166,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           ...cleanMsgs
         ],
         temperature:0.7,
-        max_tokens:3000,
+        max_tokens:800,
       };
 
       // API call with model fallback + retry on 429
