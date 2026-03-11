@@ -17,59 +17,59 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
+const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama3-70b-8192'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
   const t=today();
-  const notesSummary=(data.notes||[]).slice(0,8).map(n=>{
-    let s=`• ${n.title.slice(0,40)}`;
+  const notesSummary=(data.notes||[]).slice(0,4).map(n=>{
+    let s=`• ${n.title.slice(0,30)}`;
     if(n.amount)s+=` $${n.amount}`;
     if(n.tags?.length)s+=` [${n.tags.slice(0,2).join(',')}]`;
     return s;
   }).join('\n');
   const tasksPending=(data.tasks||[]).filter(t=>t.status==='todo');
-  const tasksSummary=tasksPending.slice(0,6).map(t=>`• ${t.title.slice(0,40)}${t.deadline?' ('+t.deadline+')':''}`).join('\n');
+  const tasksSummary=tasksPending.slice(0,4).map(t=>`• ${t.title.slice(0,30)}${t.deadline?' ('+t.deadline+')':''}`).join('\n');
   const inboxPending=(data.inbox||[]).filter(i=>!i.processed);
   const habitNames=(data.habits||[]).map(h=>h.name).join(', ');
   const areaNames=(data.areas||[]).map(a=>`${a.icon} ${a.name}`).join(', ');
   const areaMap=(data.areas||[]).map(a=>`"${a.name}" → "${a.id}"`).join(', ');
   const objectives=(data.objectives||[]).filter(o=>o.status==='active').map(o=>`• ${o.title}`).join('\n');
-  const allTags=[...new Set((data.notes||[]).flatMap(n=>n.tags||[]))].slice(0,15);
+  const allTags=[...new Set((data.notes||[]).flatMap(n=>n.tags||[]))].slice(0,8);
   const tagList=allTags.length?allTags.join(', '):'(sin tags aún)';
 
   // ── Finanzas ──
-  const recentTx=(data.transactions||[]).slice(0,6).map(tx=>`• ${tx.type==='ingreso'?'↑':'↓'} $${tx.amount} ${tx.currency||'MXN'} — ${tx.category||''} ${tx.description||''}`).join('\n');
+  const recentTx=(data.transactions||[]).slice(0,4).map(tx=>`• ${tx.type==='ingreso'?'↑':'↓'} $${tx.amount} ${tx.currency||'MXN'} — ${tx.category||''} ${tx.description||''}`).join('\n');
   const budgetSummary=(data.budget||[]).map(b=>`• ${b.title}: $${b.amount} ${b.currency||'MXN'}/mes día ${b.dayOfMonth}`).join('\n');
 
   // ── Salud ──
-  const recentMetrics=(data.healthMetrics||[]).slice(0,5).map(m=>`• ${m.type}: ${m.value} ${m.unit||''} (${m.date})`).join('\n');
+  const recentMetrics=(data.healthMetrics||[]).slice(0,3).map(m=>`• ${m.type}: ${m.value} ${m.unit||''} (${m.date})`).join('\n');
   const medications=(data.medications||[]).map(m=>`• ${m.name} ${m.dose||''} ${m.unit||''} — ${m.frequency||''}`).join('\n');
-  const recentWorkouts=(data.workouts||[]).slice(0,4).map(w=>`• ${w.type} ${w.duration||''}min ${w.date}`).join('\n');
+  const recentWorkouts=(data.workouts||[]).slice(0,3).map(w=>`• ${w.type} ${w.duration||''}min ${w.date}`).join('\n');
   const hg=data.healthGoals||{};
   const healthGoalsSummary=Object.entries(hg).map(([k,v])=>`${k}: ${v}`).join(', ');
 
   // ── Hogar ──
-  const maintenances=(data.maintenances||[]).slice(0,5).map(m=>`• ${m.name} — cada ${m.frequencyDays}d, último: ${m.lastDone||'nunca'}`).join('\n');
-  const homeDocs=(data.homeDocs||[]).slice(0,4).map(d=>`• ${d.name} vence: ${d.expiryDate||'—'}`).join('\n');
+  const maintenances=(data.maintenances||[]).slice(0,3).map(m=>`• ${m.name} — cada ${m.frequencyDays}d, último: ${m.lastDone||'nunca'}`).join('\n');
+  const homeDocs=(data.homeDocs||[]).slice(0,3).map(d=>`• ${d.name} vence: ${d.expiryDate||'—'}`).join('\n');
 
   // ── Desarrollo Personal ──
   const learnings=(data.learnings||[]).filter(l=>l.status==='active').map(l=>`• ${l.name} ${l.progress||0}% — ${l.platform||''}`).join('\n');
   const recentRetros=(data.retros||[]).slice(0,2).map(r=>`• Retro ${r.period} (${r.date})`).join('\n');
-  const recentIdeas=(data.ideas||[]).slice(0,4).map(i=>`• [${i.tag||'Idea'}] ${i.content.slice(0,50)}`).join('\n');
+  const recentIdeas=(data.ideas||[]).slice(0,3).map(i=>`• [${i.tag||'Idea'}] ${i.content.slice(0,35)}`).join('\n');
   const booksSummary=(data.books||[]).filter(b=>b.status==='reading').map(b=>`• ${b.title}${b.author?' — '+b.author:''}`).join('\n');
-  const booksWant=(data.books||[]).filter(b=>b.status==='want').slice(0,3).map(b=>`• ${b.title}`).join('\n');
+  const booksWant=(data.books||[]).filter(b=>b.status==='want').slice(0,2).map(b=>`• ${b.title}`).join('\n');
 
   // ── Relaciones ──
   const peopleSummary=(data.people||[]).map(p=>`• ${p.emoji||'👤'} ${p.name} (${p.relation||''})`).join('\n');
-  const pendingFollowUps=(data.followUps||[]).filter(f=>!f.done).slice(0,5).map(f=>{
+  const pendingFollowUps=(data.followUps||[]).filter(f=>!f.done).slice(0,3).map(f=>{
     const person=(data.people||[]).find(p=>p.id===f.personId);
     return `• ${f.task} → ${person?.name||'?'} ${f.dueDate?'('+f.dueDate+')':''}`;
   }).join('\n');
 
   // ── Side Projects ──
   const activeProjects=(data.sideProjects||[]).filter(p=>p.status==='progress').map(p=>`• ${p.name} — ${p.stack||''}`).join('\n');
-  const spTasksPending=(data.spTasks||[]).filter(t=>!t.done).slice(0,5).map(t=>{
+  const spTasksPending=(data.spTasks||[]).filter(t=>!t.done).slice(0,3).map(t=>{
     const proj=(data.sideProjects||[]).find(p=>p.id===t.projectId);
     return `• ${t.title} [${proj?.name||'?'}]`;
   }).join('\n');
@@ -77,25 +77,25 @@ const buildPsickePrompt=(data,challenge)=>{
   // ── Coche ──
   const _carInfo=data.carInfo||{};
   const carInfoStr=_carInfo.brand?`${_carInfo.brand} ${_carInfo.model||''} ${_carInfo.year||''} · ${_carInfo.plate||''} · ${_carInfo.km||'?'} km`:'Sin datos del coche';
-  const carMaintStr=(data.carMaintenances||[]).slice(0,5).map(m=>`• ${m.name} — último: ${m.lastDone||'nunca'}, cada ${m.frequencyDays||'?'}d / ${m.frequencyKm||'?'} km, costo: $${m.cost||0}`).join('\n');
-  const carExpStr=(data.carExpenses||[]).slice(0,4).map(e=>`• ${e.concept}: $${e.amount} (${e.date||''})`).join('\n');
+  const carMaintStr=(data.carMaintenances||[]).slice(0,3).map(m=>`• ${m.name} — último: ${m.lastDone||'nunca'}, cada ${m.frequencyDays||'?'}d / ${m.frequencyKm||'?'} km, costo: $${m.cost||0}`).join('\n');
+  const carExpStr=(data.carExpenses||[]).slice(0,3).map(e=>`• ${e.concept}: $${e.amount} (${e.date||''})`).join('\n');
   const farmaciaStr=(data.farmaciaItems||[]).map(f=>`• ${f.name}: ${f.quantity} ${f.unit}${f.expiresAt?' vence '+f.expiresAt:''}`).join('\n');
 
   // ── Sueño ──
-  const sleepRecent=(data.sleepLog||[]).slice(0,3).map(s=>`• ${s.date}: ${s.hoursSlept}h · calidad ${s.quality}/5`).join('\n');
+  const sleepRecent=(data.sleepLog||[]).slice(0,2).map(s=>`• ${s.date}: ${s.hoursSlept}h · calidad ${s.quality}/5`).join('\n');
 
   // ── Compras ──
   const shoppingPending=(data.shopping||[]).filter(i=>!i.done).map(i=>`• ${i.qty} ${i.unit} ${i.name}${i.category?' ['+i.category+']':''}`).join('\n');
 
   // ── Entretenimiento ──
   const watchingNow=(data.entertainment||[]).filter(e=>e.status==='watching').map(e=>`• ${e.title} (${e.type==='movie'?'Película':'Serie'})`).join('\n');
-  const wantToWatch=(data.entertainment||[]).filter(e=>e.status==='want').slice(0,4).map(e=>`• ${e.title}`).join('\n');
+  const wantToWatch=(data.entertainment||[]).filter(e=>e.status==='want').slice(0,3).map(e=>`• ${e.title}`).join('\n');
 
   // ── Mascotas ──
   const petsSummary=(data.pets||[]).map(p=>`• ${p.type} ${p.name}${p.breed?' ('+p.breed+')':''}`).join('\n');
 
   // ── Viajes ──
-  const tripsSummary=(data.trips||[]).slice(0,4).map(t=>`• ${t.emoji} ${t.destination} [${t.status}]${t.startDate?' · '+t.startDate:''}`).join('\n');
+  const tripsSummary=(data.trips||[]).slice(0,3).map(t=>`• ${t.emoji} ${t.destination} [${t.status}]${t.startDate?' · '+t.startDate:''}`).join('\n');
 
   // ── Educación ──
   const eduSubjects=(data.education||[]).map(s=>`• ${s.icon} ${s.name} (${(s.notes||[]).length} apuntes)`).join('\n');
@@ -1153,7 +1153,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     try{
       const sysPrompt=buildPsickePrompt(data,challenge);
       // Clean conversation for API: strip save labels, keep last 8 msgs (OpenAI format)
-      const cleanMsgs=next.slice(-8).map(m=>({
+      const cleanMsgs=next.slice(-6).map(m=>({
         role:m.role==='assistant'?'assistant':'user',
         content:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '
       }));
