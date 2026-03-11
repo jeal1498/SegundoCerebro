@@ -34,7 +34,15 @@ const Objectives = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) =
     setModal(false);toast.success('Objetivo guardado');setForm({title:'',areaId:areaFilter||'',deadline:'',status:'active'});
   };
   const toggle=(id)=>{const u=data.objectives.map(o=>o.id===id?{...o,status:o.status==='active'?'done':'active',completedAt:o.status==='active'?today():null}:o);setData(d=>({...d,objectives:u}));save('objectives',u);};
-  const del=(id)=>{const u=data.objectives.filter(o=>o.id!==id);setData(d=>({...d,objectives:u}));save('objectives',u);if(selected===id)setSelected(null);};
+  const del=(id)=>{
+    const orphanProjIds=(data.projects||[]).filter(p=>p.objectiveId===id).map(p=>p.id);
+    const updObj=(data.objectives||[]).filter(o=>o.id!==id);
+    const updProj=(data.projects||[]).filter(p=>p.objectiveId!==id);
+    const updTasks=(data.tasks||[]).filter(t=>t.objectiveId!==id&&!orphanProjIds.includes(t.projectId));
+    setData(d=>({...d,objectives:updObj,projects:updProj,tasks:updTasks}));
+    save('objectives',updObj);save('projects',updProj);save('tasks',updTasks);
+    if(selected===id)setSelected(null);
+  };
 
   // Milestones
   const [msForm,setMsForm]=useState({text:'',dueDate:'',weight:20});
