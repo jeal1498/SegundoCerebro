@@ -227,8 +227,10 @@ ${eduSubjects||'(sin materias)'}
 ╚═══════════════════════════════════════════════════╝
 
 PASO I — TIPO DE ENTRADA
-  A) CONSULTA → Ir a PASO V
-  B) CAPTURA → Continuar a PASO II
+  A) SALUDO / CONVERSACIÓN CASUAL (hola, cómo estás, buenos días, gracias, etc.)
+     → Responder brevemente y preguntar en qué se puede ayudar. NUNCA guardar nada.
+  B) CONSULTA → Ir a PASO V directamente. NUNCA guardar nada.
+  C) CAPTURA (información sobre algo que pasó, gasto, tarea, hábito, etc.) → Continuar a PASO II
 
 PASO II — ÁREA
 ¿A qué área pertenece? Áreas: ${areaNames||'ninguna'}
@@ -1912,7 +1914,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                           </div>
                         </div>
                       ):(
-                        <div className="psicke-msg" style={{position:'relative',maxWidth:'78%'}}
+                        <div className="psicke-msg" style={{position:'relative',maxWidth:'78%',minWidth:80}}
                           onClick={e=>{if(isUser){e.stopPropagation();setMsgMenu(showMenu?null:i);}}}>
                           {/* Bubble tail */}
                           <div style={{position:'absolute',top:0,
