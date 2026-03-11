@@ -1795,7 +1795,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap');
-        @keyframes psicke-in{from{opacity:0;transform:translateY(32px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes psicke-in{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
         @keyframes psicke-pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,200,150,0.5)}50%{box-shadow:0 0 0 12px rgba(0,200,150,0)}}
         @keyframes psicke-ring{0%{opacity:0.6;transform:scale(1)}100%{opacity:0;transform:scale(1.8)}}
         @keyframes pop-in{from{opacity:0;transform:scale(.93) translateY(5px)}to{opacity:1;transform:scale(1) translateY(0)}}
@@ -1806,20 +1806,12 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
 
       {/* CHAT PANEL */}
       {open&&(
-        <div style={{position:'fixed',inset:0,zIndex:1000,display:'flex',flexDirection:'column',justifyContent:'flex-end'}}
-          onClick={e=>e.target===e.currentTarget&&closePanel()}>
-          {/* Backdrop */}
-          <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.55)',backdropFilter:'blur(6px)'}} onClick={()=>closePanel()}/>
+        <div style={{position:'fixed',inset:0,zIndex:1000,display:'flex',flexDirection:'column',
+          background:T.surface,animation:'psicke-in 0.28s ease-out both'}}>
 
-          {/* Panel */}
-          <div style={{position:'relative',zIndex:1,background:T.surface,borderRadius:'20px 20px 0 0',border:`1px solid ${T.borderLight}`,borderBottom:'none',
-            maxHeight:'78vh',display:'flex',flexDirection:'column',
-            animation:'psicke-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both',
-            boxShadow:'0 -8px 48px rgba(0,0,0,0.6)'}}>
-
-            {/* Handle + header */}
-            <div style={{padding:'12px 20px 0',flexShrink:0}}>
-              <div style={{width:36,height:4,background:T.border,borderRadius:2,margin:'0 auto 14px'}}/>
+          {/* Header */}
+          <div style={{padding:'12px 20px 0',flexShrink:0}}>
+              <div style={{display:'none'}}/>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
                   <div style={{width:40,height:40,borderRadius:13,background:`linear-gradient(135deg,${T.accent},${T.orange})`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:22,border:`1.5px solid ${T.borderLight}`,boxShadow:`0 0 18px rgba(79,142,247,.3),0 0 6px rgba(249,115,22,.15)`}}>
@@ -2031,7 +2023,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
             </div>
 
             {/* Input area */}
-            <div style={{padding:'8px 12px 20px',flexShrink:0,borderTop:`1px solid ${T.border}`}}>
+            <div style={{padding:'8px 12px 24px',flexShrink:0,borderTop:`1px solid ${T.border}`,paddingBottom:'max(24px,env(safe-area-inset-bottom))'}}>
               {recording&&<div style={{textAlign:'center',color:T.red,fontSize:11,fontWeight:600,marginBottom:6,letterSpacing:1}}>● ESCUCHANDO</div>}
               {/* Slash command menu */}
               {slashMenu&&filteredCmds.length>0&&(
@@ -2093,7 +2085,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                 </button>
               </div>
             </div>
-          </div>
         </div>
       )}
 
