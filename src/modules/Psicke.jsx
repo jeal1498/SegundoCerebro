@@ -17,7 +17,7 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GEMINI_MODELS = ['gemini-2.5-flash-preview-04-17', 'gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
@@ -911,72 +911,65 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     setShowSugg(false);
     const key=(apiKey||'').trim().replace(/\s+/g,'');
     if(!key){setOpen(false);onGoSettings();return;}
-    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes y pega la clave completa desde Google AI Studio.'}]); return; }
+    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes y pega la clave completa desde console.groq.com.'}]); return; }
     const userMsg={role:'user',content:text};
     const next=[...msgs,userMsg];
     saveMsgs(next);setInput('');setLoading(true);
     try{
       const sysPrompt=buildPsickePrompt(data,challenge);
-      // Clean conversation for API: strip save labels, keep last 8 msgs
+      // Clean conversation for API: strip save labels, keep last 8 msgs (OpenAI format)
       const cleanMsgs=next.slice(-8).map(m=>({
-        role:m.role==='assistant'?'model':'user',
-        parts:[{text:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '}]
+        role:m.role==='assistant'?'assistant':'user',
+        content:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '
       }));
       const body={
-        system_instruction:{role:'system',parts:[{text:sysPrompt}]},
-        contents:[
-          {role:'user',parts:[{text:'Hola Psicke, estoy listo.'}]},
-          {role:'model',parts:[{text:'Aquí Psicke. ¿En qué está pensando?'}]},
+        model: GROQ_MODELS[0], // overridden per callApi
+        messages:[
+          {role:'system', content:sysPrompt},
+          {role:'user',    content:'Hola Psicke, estoy listo.'},
+          {role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?'},
           ...cleanMsgs
         ],
-        generationConfig:{temperature:0.7,maxOutputTokens:3000},
+        temperature:0.7,
+        max_tokens:3000,
       };
 
       // API call with model fallback + retry on 429
       const callApi=async(modelIdx=0, attempt=0)=>{
-        const model = GEMINI_MODELS[modelIdx] || GEMINI_MODELS[0];
+        const model = GROQ_MODELS[modelIdx] || GROQ_MODELS[0];
         const res=await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-          {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+          'https://api.groq.com/openai/v1/chat/completions',
+          {method:'POST',
+           headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
+           body:JSON.stringify({...body, model})}
         );
         if(res.status===429){
           const err=await res.json().catch(()=>({}));
           const emsg=(err?.error?.message||'').toLowerCase();
-          // Quota exhausted → try next model immediately
-          if(emsg.includes('quota')||emsg.includes('exhausted')||emsg.includes('resource_exhausted')){
-            if(modelIdx<GEMINI_MODELS.length-1) return callApi(modelIdx+1, 0);
-            throw new Error('Cuota diaria agotada en todos los modelos Gemini. Intenta mañana o crea una nueva API Key en Google AI Studio.');
+          // Daily quota exhausted → try next model
+          if(emsg.includes('quota')||emsg.includes('day')||emsg.includes('limit')){
+            if(modelIdx<GROQ_MODELS.length-1) return callApi(modelIdx+1, 0);
+            throw new Error('Cuota diaria agotada en Groq. Intenta mañana o ve a console.groq.com para revisar tus límites.');
           }
-          // Rate limit → retry with backoff on same model
+          // Rate limit por minuto → retry con backoff
           if(attempt<2){
             const wait=[8000,20000][attempt];
             await new Promise(r=>setTimeout(r,wait));
             return callApi(modelIdx, attempt+1);
           }
-          // Rate limit exhausted → try next model
-          if(modelIdx<GEMINI_MODELS.length-1) return callApi(modelIdx+1, 0);
+          if(modelIdx<GROQ_MODELS.length-1) return callApi(modelIdx+1, 0);
           throw new Error('Demasiadas solicitudes. Espera unos minutos e intenta de nuevo.');
+        }
+        if(res.status===401){
+          throw new Error('API Key de Groq no válida. Ve a Ajustes → borra la clave → pega la nueva desde console.groq.com → API Keys.');
         }
         if(res.status===400){
           const err=await res.json().catch(()=>({}));
-          const emsg=err?.error?.message||'';
-          if(emsg.toLowerCase().includes('api key')||emsg.toLowerCase().includes('api_key_invalid')||emsg.toLowerCase().includes('not found')||emsg.toLowerCase().includes('not pass'))
-            throw new Error(`API Key no válida. Ve a Ajustes → borra la clave actual → pega la nueva desde Google AI Studio.`);
-          throw new Error(`Error 400: ${emsg}`);
+          throw new Error(`Error 400: ${err?.error?.message||'Solicitud inválida'}`);
         }
         if(res.status===404){
-          const err=await res.json().catch(()=>({}));
-          const emsg=err?.error?.message||'';
-          // Model not available → try next one
-          if(modelIdx<GEMINI_MODELS.length-1) return callApi(modelIdx+1, 0);
-          throw new Error(`Ningún modelo Gemini disponible para esta API Key. Verifica en Google AI Studio.`);
-        }
-        if(res.status===403){
-          const err=await res.json().catch(()=>({}));
-          const emsg=err?.error?.message||'Sin permisos';
-          throw new Error(`API Key sin permisos para usar Gemini.
-
-Detalle: ${emsg}`);
+          if(modelIdx<GROQ_MODELS.length-1) return callApi(modelIdx+1, 0);
+          throw new Error('Ningún modelo Groq disponible para esta API Key.');
         }
         if(!res.ok){
           const err=await res.json().catch(()=>({}));
@@ -986,17 +979,13 @@ Detalle: ${emsg}`);
       };
 
       const d=await callApi();
-      const candidate=d.candidates?.[0];
-      // gemini returns thought parts (2.5+ models) (thought:true) before the actual text — skip them
-      const textPart=candidate?.content?.parts?.find(p=>!p.thought && p.text?.trim());
-      if(!textPart?.text){
-        const reason=candidate?.finishReason||d.promptFeedback?.blockReason||'desconocido';
-        const safetyRatings=candidate?.safetyRatings?.filter(r=>r.probability!=='NEGLIGIBLE').map(r=>`${r.category}:${r.probability}`).join(', ')||'';
-        if(reason==='SAFETY')throw new Error('Respuesta bloqueada por filtros de seguridad. Intente reformular.');
-        if(reason==='MAX_TOKENS')throw new Error('Respuesta cortada por límite de tokens. Intente un mensaje más corto.');
-        throw new Error(`Sin respuesta (${reason}${safetyRatings?' · '+safetyRatings:''})`);
+      // Groq uses OpenAI response format
+      const raw=d.choices?.[0]?.message?.content;
+      if(!raw){
+        const reason=d.choices?.[0]?.finish_reason||'desconocido';
+        if(reason==='length') throw new Error('Respuesta cortada por límite de tokens. Intente un mensaje más corto.');
+        throw new Error(`Sin respuesta (${reason})`);
       }
-      const raw=textPart.text;
 
       // Parse and execute ALL save actions present
       const actions=parsePsickeAction(raw);
