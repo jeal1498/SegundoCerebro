@@ -1049,12 +1049,19 @@ Detalle: ${emsg}`);
         }else if(action.action==='SAVE_CAR_INFO'){
           const current=updData.carInfo||{};
           const updated={...current,...action.data};
-          updData={...updData,carInfo:updated};save('carInfo',updated);
+          // Sync the active vehicle in vehicles[] to stay consistent with carInfo
+          const activeId=updData.activeVehicleId;
+          const updVehicles=(updData.vehicles||[]).map(v=>
+            v.id===activeId?{...v,...action.data}:v
+          );
+          updData={...updData,carInfo:updated,vehicles:updVehicles};
+          save('carInfo',updated);
+          if(activeId) save('vehicles',updVehicles);
           const parts=[];
           if(action.data.km) parts.push(`🛣 ${Number(action.data.km).toLocaleString()} km`);
-          if(action.data.brand) parts.push(`${action.data.brand} ${action.data.model||''}`);
+          if(action.data.brand) parts.push(`${action.data.brand} ${action.data.model||""}`);
           if(action.data.plate) parts.push(action.data.plate);
-          return `🚗 Coche actualizado${parts.length?' · '+parts.join(' · '):''}`;
+          return `🚗 Coche actualizado${parts.length?' · '+parts.join(' · '):""}`;
 
         // ── SAVE_CAR_EXPENSE ──
         }else if(action.action==='SAVE_CAR_EXPENSE'&&action.data.concept){
@@ -1088,15 +1095,31 @@ Detalle: ${emsg}`);
       };
 
         // ── AUTO-CASCADE: guaranteed cross-module propagation regardless of AI output ──
-        // Helper: fuzzy check if a SAVE_TRANSACTION for this amount+context already exists in actions
-        const hasTxForAmount=(amt,keyword)=>actions.some(a=>
-          a.action==='SAVE_TRANSACTION'&&
-          Number(a.data.amount)===Number(amt)&&
-          (a.data.description||'').toLowerCase().includes((keyword||'').toLowerCase().split(' ')[0])
-        );
-        const hasCarExpForAmount=(amt)=>actions.some(a=>
-          a.action==='SAVE_CAR_EXPENSE'&&Number(a.data.amount)===Number(amt)
-        );
+        // Helper: fuzzy check if a SAVE_TRANSACTION for this amount+context already exists
+        // Checks both: (1) actions emitted by Gemini in this response, and
+        //              (2) entries already in the accumulated store (updData)
+        const hasTxForAmount=(amt,keyword)=>{
+          const kw=(keyword||'').toLowerCase().split(' ')[0];
+          const inActions=actions.some(a=>
+            a.action==='SAVE_TRANSACTION'&&
+            Number(a.data.amount)===Number(amt)&&
+            (a.data.description||'').toLowerCase().includes(kw)
+          );
+          const inStore=(updData.transactions||[]).some(t=>
+            Number(t.amount)===Number(amt)&&
+            (t.description||'').toLowerCase().includes(kw)
+          );
+          return inActions||inStore;
+        };
+        const hasCarExpForAmount=(amt)=>{
+          const inActions=actions.some(a=>
+            a.action==='SAVE_CAR_EXPENSE'&&Number(a.data.amount)===Number(amt)
+          );
+          const inStore=(updData.carExpenses||[]).some(e=>
+            Number(e.amount)===Number(amt)
+          );
+          return inActions||inStore;
+        };
 
         const autoCascade=(action)=>{
           const d=action.data;const cascaded=[];
