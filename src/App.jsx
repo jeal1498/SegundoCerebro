@@ -55,6 +55,9 @@ function App() {
   const [apiKey, setApiKey]           = useState(() => { try { return localStorage.getItem('sb_gemini_key') || ''; } catch { return ''; } });
   const [showWelcome, setShowWelcome] = useState(() => { try { return !localStorage.getItem('sb_gemini_key'); } catch { return true; } });
   const [welcomeKeyInput, setWelcomeKeyInput] = useState('');
+  const [welcomeTesting, setWelcomeTesting]   = useState(false);
+  const [welcomeTestResult, setWelcomeTestResult] = useState(null);
+  const [welcomeTestMsg, setWelcomeTestMsg]   = useState('');
   const [showCapture, setShowCapture]     = useState(false);
   const [captureText, setCaptureText]     = useState('');
   const [captureDest, setCaptureDest]     = useState('inbox');
@@ -112,6 +115,20 @@ function App() {
     const onPop = () => {
       history.pushState(null, '', window.location.href);
       // If a panel is open, close it; otherwise stay on current view
+      if (psickeOpen) { setPsickeOpen(false); return; }
+      if (showSearch) { setShowSearch(false); return; }
+      if (view !== 'dashboard') { navTo('dashboard'); }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, psickeOpen, showSearch]);
+
+  // ── Android back button trap ──
+  useEffect(() => {
+    history.pushState(null, '', window.location.href);
+    const onPop = () => {
+      history.pushState(null, '', window.location.href);
       if (psickeOpen) { setPsickeOpen(false); return; }
       if (showSearch) { setShowSearch(false); return; }
       if (view !== 'dashboard') { navTo('dashboard'); }
@@ -202,37 +219,31 @@ function App() {
   ];
 
   const submitCapture = useCallback(() => {
-    if (!captureText.trim()) return;
+    if (!captureText.trim() || !data) return;
     const text = captureText.trim();
     const todayStr = today();
     if (captureDest === 'task') {
       const task = { id: uid(), title: text, status: 'todo', createdAt: todayStr, projectId: '', priority: 'media', dueDate: todayStr, subtasks: [], notes: '', objectiveId: '' };
-      setData(d => {
-        const updated = [...(d.tasks || []), task];
-        save('tasks', updated);
-        return { ...d, tasks: updated };
-      });
+      const updated = [...(data.tasks || []), task];
+      setData(d => ({ ...d, tasks: updated }));
+      save('tasks', updated);
       toast.success('✅', 'Tarea creada');
     } else if (captureDest === 'note') {
       const note = { id: uid(), title: text, content: '', tags: [], areaId: '', createdAt: todayStr };
-      setData(d => {
-        const updated = [...(d.notes || []), note];
-        save('notes', updated);
-        return { ...d, notes: updated };
-      });
+      const updated = [...(data.notes || []), note];
+      setData(d => ({ ...d, notes: updated }));
+      save('notes', updated);
       toast.success('📝', 'Nota guardada');
     } else {
       const item = { id: uid(), content: text, createdAt: todayStr, processed: false };
-      setData(d => {
-        const updated = [item, ...(d.inbox || [])];
-        save('inbox', updated);
-        return { ...d, inbox: updated };
-      });
+      const updated = [item, ...(data.inbox || [])];
+      setData(d => ({ ...d, inbox: updated }));
+      save('inbox', updated);
       toast.success('📥', 'Guardado en Inbox');
     }
     setCaptureText('');
     setShowCapture(false);
-  }, [captureText, captureDest, setData]);
+  }, [captureText, captureDest, data, setData]);
 
   if (!data) return <AppLoader />;
 
@@ -287,6 +298,7 @@ function App() {
       color: T.text, overflow: 'hidden', position: 'fixed', inset: 0,
     }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
         html,body,#root{margin:0;padding:0;width:100%;height:100%;background:${T.bg};}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
         *:focus-visible{outline:2px solid ${T.accent};outline-offset:2px;border-radius:4px;}
@@ -505,7 +517,7 @@ function App() {
                 Activa tu asistente IA
               </div>
               <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:T.muted,lineHeight:1.6,marginBottom:20 }}>
-                Psicke necesita una <strong style={{ color:T.text }}>Google Gemini API Key</strong> para funcionar. Es gratis y tarda menos de un minuto obtenerla.
+                Psicke necesita una <strong style={{ color:T.text }}>Groq API Key</strong> para funcionar. Es gratis y tarda menos de un minuto obtenerla.
               </div>
 
               {/* Input */}
@@ -515,32 +527,61 @@ function App() {
                 </label>
                 <input
                   type="password"
-                  placeholder="AIza..."
+                  placeholder="gsk_..."
                   value={welcomeKeyInput}
-                  onChange={e => setWelcomeKeyInput(e.target.value)}
-                  style={{ width:'100%',background:T.surface2,border:`1px solid ${welcomeKeyInput.length>10?T.accent:T.border}`,borderRadius:10,padding:'10px 14px',color:T.text,fontSize:14,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:'none',transition:'border-color .2s' }}
+                  onChange={e => { setWelcomeKeyInput(e.target.value); setWelcomeTestResult(null); }}
+                  style={{ width:'100%',background:T.surface2,border:`1px solid ${welcomeTestResult==='ok'?T.green:welcomeTestResult==='error'?T.red:welcomeKeyInput.length>10?T.accent:T.border}`,borderRadius:10,padding:'10px 14px',color:T.text,fontSize:14,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:'none',transition:'border-color .2s' }}
                 />
               </div>
 
-              {/* Primary CTA */}
+              {/* Test result message */}
+              {welcomeTestResult&&(
+                <div style={{ fontSize:12,color:welcomeTestResult==='ok'?T.green:T.red,background:welcomeTestResult==='ok'?`${T.green}11`:`${T.red}11`,border:`1px solid ${welcomeTestResult==='ok'?T.green:T.red}33`,borderRadius:8,padding:'8px 12px',marginBottom:12,lineHeight:1.5,fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+                  {welcomeTestMsg}
+                </div>
+              )}
+
+              {/* Primary CTA — validates before entering */}
               <button
-                onClick={() => {
+                onClick={async () => {
                   const key = welcomeKeyInput.trim();
-                  if (!key) return;
-                  try { localStorage.setItem('sb_gemini_key',''); localStorage.setItem('sb_gemini_key', key); } catch {}
-                  setApiKey(key);
-                  setShowWelcome(false);
+                  if (!key || welcomeTesting) return;
+                  setWelcomeTesting(true);
+                  setWelcomeTestResult(null);
+                  try {
+                    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: 'Hola.' }], max_tokens: 5 })
+                    });
+                    if (res.ok) {
+                      try { localStorage.setItem('sb_gemini_key', key); } catch {}
+                      setApiKey(key);
+                      setShowWelcome(false);
+                    } else if (res.status === 401) {
+                      setWelcomeTestResult('error');
+                      setWelcomeTestMsg('❌ API Key inválida. Ve a console.groq.com → API Keys y copia la clave completa.');
+                    } else {
+                      const err = await res.json().catch(() => ({}));
+                      setWelcomeTestResult('error');
+                      setWelcomeTestMsg('❌ ' + (err?.error?.message || `Error HTTP ${res.status}`));
+                    }
+                  } catch(e) {
+                    setWelcomeTestResult('error');
+                    setWelcomeTestMsg('❌ Error de red. Verifica tu conexión.');
+                  }
+                  setWelcomeTesting(false);
                 }}
-                disabled={welcomeKeyInput.trim().length < 10}
-                style={{ width:'100%',background:welcomeKeyInput.trim().length>=10?T.accent:'#2a3440',border:'none',borderRadius:12,padding:'13px 0',color:welcomeKeyInput.trim().length>=10?'#000':T.dim,fontFamily:"'Sora',sans-serif",fontSize:14,fontWeight:700,cursor:welcomeKeyInput.trim().length>=10?'pointer':'not-allowed',transition:'all .2s',marginBottom:10 }}>
-                Activar Psicke →
+                disabled={welcomeKeyInput.trim().length < 10 || welcomeTesting}
+                style={{ width:'100%',background:welcomeKeyInput.trim().length>=10&&!welcomeTesting?T.accent:'#2a3440',border:'none',borderRadius:12,padding:'13px 0',color:welcomeKeyInput.trim().length>=10&&!welcomeTesting?'#000':T.dim,fontFamily:"'Sora',sans-serif",fontSize:14,fontWeight:700,cursor:welcomeKeyInput.trim().length>=10&&!welcomeTesting?'pointer':'not-allowed',transition:'all .2s',marginBottom:10 }}>
+                {welcomeTesting ? 'Verificando…' : 'Activar Psicke →'}
               </button>
 
               {/* Get key link */}
               <div style={{ textAlign:'center',marginBottom:16 }}>
-                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer"
+                <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer"
                   style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,color:T.blue,textDecoration:'none' }}>
-                  Obtener API Key gratis en Google AI Studio ↗
+                  Obtener API Key gratis en console.groq.com ↗
                 </a>
               </div>
 
