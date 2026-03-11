@@ -801,7 +801,9 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   // ── Challenge profile ──────────────────────────────────────────────────
   const challenge=useMemo(()=>{ try{ return localStorage.getItem('sb_challenge')||null; }catch{ return null; } },[]);
 
-  // ── Daily auto-summary — fires once per day when panel opens ──
+  // ── Daily auto-summary — DISABLED (consume quota on open) ──
+  // To re-enable: uncomment the block below
+  /*
   useEffect(()=>{
     if(!open||!apiKey) return;
     const key='psicke_daily_summary';
@@ -809,7 +811,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     if(lastDate===today()) return;
     const timer=setTimeout(()=>{
       localStorage.setItem(key,today());
-      // Prompt adapted to challenge
       const summaryPrompt = {
         capt:  'Hazme un resumen de hoy enfocado en: ¿qué tengo pendiente en el inbox? ¿hay algo que debería capturar antes de que se me olvide? Máximo 3 puntos, sé breve.',
         prio:  'Dime cuál es la tarea más importante que debo hacer hoy y por qué. Luego dame 2 cosas más si las hay. Sé directo y concreto.',
@@ -822,6 +823,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     return()=>clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[open]);
+  */
 
   // Subtle pulse every 8s to remind user Psicke exists
   useEffect(()=>{
