@@ -57,7 +57,8 @@ const buildPsickePrompt=(data,challenge)=>{
   const learnings=(data.learnings||[]).filter(l=>l.status==='active').map(l=>`• ${l.name} ${l.progress||0}% — ${l.platform||''}`).join('\n');
   const recentRetros=(data.retros||[]).slice(0,2).map(r=>`• Retro ${r.period} (${r.date})`).join('\n');
   const recentIdeas=(data.ideas||[]).slice(0,4).map(i=>`• [${i.tag||'Idea'}] ${i.content.slice(0,50)}`).join('\n');
-  const booksSummary=(data.books||[]).filter(b=>b.status==='reading').map(b=>`• ${b.title}`).join('\n');
+  const booksSummary=(data.books||[]).filter(b=>b.status==='reading').map(b=>`• ${b.title}${b.author?' — '+b.author:''}`).join('\n');
+  const booksWant=(data.books||[]).filter(b=>b.status==='want').slice(0,3).map(b=>`• ${b.title}`).join('\n');
 
   // ── Relaciones ──
   const peopleSummary=(data.people||[]).map(p=>`• ${p.emoji||'👤'} ${p.name} (${p.relation||''})`).join('\n');
@@ -356,6 +357,14 @@ Identifica el módulo exacto donde guardar:
   34. Visita al veterinario → SAVE_PET_VET
       (petName, date, reason, clinic, vet, diagnosis, treatment, cost, nextVisit, notes)
 
+  LIBROS:
+  35b. Libro nuevo, leyendo o leído → SAVE_BOOK
+      (title, author, status: want|reading|done|dropped, genre, pages, rating 1-5, review)
+
+  DIARIO PERSONAL:
+  35c. Entrada de diario, reflexión del día → SAVE_JOURNAL
+      (date, mood, content, gratitude, intention)
+
   HÁBITOS (control):
   35. Marcar hábito como completado hoy → MARK_HABIT_DONE
       (habitName) — fuzzy match por nombre
@@ -416,22 +425,229 @@ MASCOTAS:
 
 ═══════════════════════════════════════════════════════
 
-PASO IV-PLAN — Para OBJETIVO o PROYECTO grande
-  A) ¿Tengo info suficiente? (meta concreta, plazo, cómo)
-     SÍ → ETAPA C | NO → ETAPA B (1-2 preguntas)
-  C) Confirmar plan con usuario. NO generar JSON todavía.
-  D) Con confirmación → generar SAVE_PLAN
+PASO IV — COMPLETAR CAMPOS ANTES DE GUARDAR
+╔══════════════════════════════════════════════════════════════╗
+║  REGLA ABSOLUTA DE CALIDAD DE DATOS                         ║
+║                                                              ║
+║  UN REGISTRO INCOMPLETO EN LA APP ES UN FRACASO.            ║
+║  El usuario PREFIERE un interrogatorio completo a           ║
+║  encontrar campos vacíos cuando abra un módulo.             ║
+║                                                              ║
+║  → NO emitas JSON hasta tener TODOS los campos de           ║
+║    alto valor del módulo identificado.                      ║
+║  → Si faltan varios campos, pregúntalos TODOS juntos        ║
+║    en un solo mensaje. No preguntes de uno en uno.          ║
+║  → Si el usuario responde parcial, pide lo que sigue        ║
+║    faltando antes de guardar.                               ║
+╚══════════════════════════════════════════════════════════════╝
 
-PASO IV-SIMPLE — Para todo lo demás
-  ¿Tengo todos los datos? SÍ → JSON. NO → 1 pregunta puntual.
-  - Montos: incluir amount + currency SIEMPRE
-  - Fechas: usar formato YYYY-MM-DD
-  - Para FOLLOWUP e INTERACTION: usar el nombre de la persona (no el id)
+CAMPOS OBLIGATORIOS POR MÓDULO:
+(✦ = sin esto NO guardes · ○ = pregunta si no lo mencionó)
+
+── FINANZAS ──
+TRANSACCIÓN:
+  ✦ amount, currency, type (egreso/ingreso)
+  ○ category, description detallada, date
+  → "Gasté en el súper" → ¿cuánto? ¿qué compraste exactamente?
+
+PRESUPUESTO FIJO:
+  ✦ title, amount, currency, dayOfMonth
+  → "Pago Netflix" → ¿cuánto cuesta? ¿qué día del mes?
+
+── TAREAS Y RECORDATORIOS ──
+TAREA CON FECHA:
+  ✦ title CON CONTEXTO COMPLETO (¿qué? + ¿con quién? + ¿cuánto si aplica?)
+  ✦ deadline (fecha), hora si se mencionó
+  → "Recuérdame pagar la tanda el 15" → ¿a quién le pagas? ¿cuánto es el monto?
+  → Nunca guardar "Pagar tanda" — siempre "Pagar $800 a María de la tanda del trabajo"
+
+HÁBITO:
+  ✦ name MUY ESPECÍFICO, frequency
+  → "Hacer ejercicio" → ¿qué tipo? ¿cuánto tiempo? → "Correr 30 min"
+
+── COCHE ──
+MANTENIMIENTO COCHE:
+  ✦ name (tipo exacto), lastDone (fecha), cost, km ACTUAL del coche
+  ○ frequencyKm, frequencyDays, taller/notas
+  → "Hice servicio" → ¿qué tipo de servicio? ¿cuánto costó? ¿a cuántos km está ahorita? ¿en qué taller?
+
+GASTO COCHE:
+  ✦ concept, amount, date
+  → ¿cuánto fue exactamente?
+
+── SALUD ──
+WORKOUT:
+  ✦ type, duration, date
+  ○ calories, distance
+  → "Fui al gym" → ¿cuánto tiempo? ¿qué hiciste? ¿distancia o calorías si aplica?
+
+MÉTRICA DE SALUD:
+  ✦ type, value, unit, date
+  → ¿cuál fue el valor exacto?
+
+MEDICAMENTO:
+  ✦ name, dose, unit, frequency, time
+  ○ stock (cantidad que tienes)
+  → "Empecé a tomar vitaminas" → ¿qué vitamina? ¿qué dosis? ¿cada cuándo? ¿a qué hora?
+
+FARMACIA / BOTIQUÍN:
+  ✦ name, quantity, unit
+  ○ expiresAt, location
+  → "Compré ibuprofeno" → ¿cuántas tabletas? ¿cuándo vence?
+
+── SUEÑO ──
+REGISTRO DE SUEÑO:
+  ✦ date, hoursSlept, quality (1-5)
+  ○ bedTime, wakeTime, interruptions
+  → "Dormí mal" → ¿cuántas horas? ¿cómo lo calificarías del 1 al 5? ¿a qué hora te dormiste y despertaste?
+
+SUEÑO / ENSUEÑO:
+  ✦ description (narración del sueño), type (Agradable/Pesadilla/Lúcido/Neutro)
+  ○ emotions, tags
+  → ¿cómo fue el tono del sueño? ¿qué sentiste?
+
+── HOGAR ──
+MANTENIMIENTO HOGAR:
+  ✦ name, lastDone, cost
+  ○ frequencyDays, category, notas del proveedor
+  → "Limpié los filtros" → ¿cuánto costó? ¿cada cuánto lo haces?
+
+DOCUMENTO HOGAR:
+  ✦ name, category, expiryDate, provider
+  ○ annualCost
+  → "Renové el seguro" → ¿con quién es? ¿cuándo vence? ¿cuánto cuesta al año?
+
+CONTACTO HOGAR:
+  ✦ name, role, phone
+  ○ email, notas de disponibilidad
+  → "Conseguí un plomero" → ¿cómo se llama? ¿cuál es su teléfono?
+
+── ENTRETENIMIENTO ──
+PELÍCULA / SERIE:
+  ✦ title, type (movie/series/doc/anime), status
+  ✦ Si status=done → rating (1-5) OBLIGATORIO
+  ○ platform, genre, year
+  ○ Si series → seasons, currentSeason, currentEp
+  → "Vi Inception" → ¿dónde la viste? ¿qué te pareció del 1 al 5? ¿de qué año es?
+  → "Empecé Breaking Bad" → ¿en qué plataforma? ¿en qué temporada/episodio vas?
+
+── LIBROS ──
+LIBRO:
+  ✦ title, author, status
+  ✦ Si status=done → rating (1-5), review breve
+  ○ genre, pages
+  → "Leí Atomic Habits" → ¿quién es el autor? ¿qué calificación le das? ¿qué aprendiste?
+
+── VIAJES ──
+VIAJE:
+  ✦ destination, country, status
+  ✦ Si planned/done → startDate, endDate
+  ○ transport, accommodation, budget/actualCost, notas
+  → "Quiero ir a Japón" → ¿para cuándo lo tienes pensado? ¿ya tienes fechas?
+  → "Fui a CDMX" → ¿cuándo fue? ¿cuánto gastaste en total?
+
+GASTO DE VIAJE:
+  ✦ tripDestination, category, amount, currency
+  ○ description, date
+  → ¿a qué viaje corresponde? ¿cuánto fue?
+
+── NUTRICIÓN ──
+RECETA:
+  ✦ name, category, difficulty, time (minutos), servings
+  ✦ ingredients (lista), steps (pasos)
+  ○ calories, tags
+  → "Quiero guardar la receta de pozole" → ¿cuánto tiempo tarda? ¿para cuántas personas? Dame los ingredientes y los pasos.
+
+── EDUCACIÓN ──
+APUNTE:
+  ✦ subjectName (materia), title, content
+  ○ type (apunte/resumen/ejercicio/examen), tags
+  → "Tomé apuntes de JS" → ¿cuál es el tema del apunte? ¿qué dice?
+
+── DESARROLLO PERSONAL ──
+APRENDIZAJE (CURSO):
+  ✦ name, platform, category
+  ○ hoursTotal, progress actual, hoursSpent
+  → "Empecé un curso de Python" → ¿en qué plataforma? ¿cuántas horas tiene? ¿en qué porcentaje vas?
+
+RETRO:
+  ✦ period (semanal/mensual), wentWell, improve, learned
+  → Guiar con las 3 preguntas: ¿qué salió bien? ¿qué mejorarías? ¿qué aprendiste?
+
+IDEA / INSIGHT:
+  ✦ content (texto completo de la idea), tag
+  → Si es vaga: "¿Puedes desarrollarla un poco más antes de guardarla?"
+
+── RELACIONES ──
+PERSONA:
+  ✦ name, relation
+  ○ phone, birthday, email, notas importantes
+  → "Conocí a alguien" → ¿cómo se llama? ¿cuál es su relación contigo? ¿tienes su teléfono?
+
+SEGUIMIENTO (FOLLOWUP):
+  ✦ task CON CONTEXTO TOTAL (¿qué? + ¿cuánto? + ¿para qué?)
+  ✦ personName, dueDate
+  ○ priority
+  → NUNCA guardar descripciones vagas. Ejemplos:
+     ✗ "Llamar a Carlos" → ✓ "Llamar a Carlos para confirmar la reunión del jueves sobre el proyecto X"
+     ✗ "Pago de tanda" → ✓ "Pagar $800 a María de la tanda del trabajo — cobro cada quincena"
+
+INTERACCIÓN:
+  ✦ personName, type, date
+  ○ notes (qué hablaron, acuerdos, próximos pasos)
+  → "Hablé con mi jefe" → ¿de qué hablaron? ¿quedaron en algo?
+
+── MASCOTAS ──
+MASCOTA NUEVA:
+  ✦ name, type
+  ○ breed, birthDate, weight, color
+  → "Tengo un perro" → ¿cómo se llama? ¿qué raza es? ¿cuándo nació? ¿cuánto pesa?
+
+VACUNA:
+  ✦ petName, name (vacuna), date, status
+  ○ nextDate, clinic, cost
+  → "Le pusieron vacuna a [mascota]" → ¿qué vacuna? ¿cuándo es la siguiente? ¿cuánto costó?
+
+VISITA VET:
+  ✦ petName, date, reason, diagnosis, treatment
+  ○ clinic, vet, cost, nextVisit
+  → "Llevé a [mascota] al vet" → ¿por qué fue? ¿qué diagnosticó el vet? ¿qué tratamiento le dieron? ¿cuánto costó?
+
+── SIDE PROJECTS ──
+PROYECTO:
+  ✦ name, description (qué es y para qué), status
+  ○ stack (tecnología), startDate, url
+  → "Estoy haciendo una app" → ¿de qué trata? ¿con qué la estás haciendo? ¿en qué estado está?
+
+TAREA DE PROYECTO:
+  ✦ projectName, title, priority
+  ○ dueDate
+  → ¿a qué proyecto pertenece? ¿qué tan urgente es?
+
+HITO / MILESTONE:
+  ✦ projectName, title, date
+  ○ notes (qué implicó lograrlo)
+  → ¿qué lograste exactamente? ¿en qué proyecto?
+
+── DIARIO ──
+ENTRADA DE DIARIO:
+  ✦ mood (1-5 o emoji), content
+  ○ gratitude (3 cosas), intention (propósito del día)
+  → Si solo dice "fue un día difícil" → preguntar qué pasó, cómo se siente, qué quiere recordar
+
+── REGLAS FINALES DE CALIDAD ──
+  - Montos: SIEMPRE amount + currency (nunca "$3400" sin MXN/USD)
+  - Fechas: formato YYYY-MM-DD siempre
+  - Horas: formato HH:MM en 24h
+  - Descripciones: concretas, no genéricas
+  - Si el usuario responde parcial → completar lo recibido y preguntar lo que falta
+  - El usuario NO se molesta con preguntas. Un registro completo vale más que una respuesta rápida.
 
 PASO V — RESPONDER
   </pensamiento>
-  [respuesta conversacional, máx 2-3 oraciones]
-  [JSON al final si aplica]
+  [Si faltan campos: pregunta TODO lo que falta en un solo mensaje, agrupado claramente]
+  [Si tienes todo: confirma brevemente lo que vas a guardar, luego el JSON]
+  [JSON SOLO cuando todos los campos ✦ están completos]
 
 ╔═══════════════════════════════════════════════════╗
 ║              FORMATOS DE GUARDADO                 ║
@@ -616,6 +832,18 @@ Recordatorio coche: \`\`\`json
 {"action":"SAVE_CAR_REMINDER","data":{"title":"Renovar tenencia","dueDate":"2026-12-31","notes":"Hacerlo antes de diciembre"}}
 \`\`\`
 
+Libro por leer: \`\`\`json
+{"action":"SAVE_BOOK","data":{"title":"Atomic Habits","author":"James Clear","status":"want","genre":"Desarrollo personal","pages":"320","rating":0,"review":""}}
+\`\`\`
+
+Libro leído: \`\`\`json
+{"action":"SAVE_BOOK","data":{"title":"El Poder del Ahora","author":"Eckhart Tolle","status":"done","genre":"Espiritualidad","pages":"236","rating":5,"review":"Cambió mi perspectiva sobre el presente"}}
+\`\`\`
+
+Diario: \`\`\`json
+{"action":"SAVE_JOURNAL","data":{"date":"${t}","mood":"😌 Tranquilo","content":"Hoy fue un día productivo, terminé el módulo de finanzas","gratitude":"Salud y tiempo para avanzar en mis proyectos","intention":"Mañana terminar el reporte antes del mediodía"}}
+\`\`\`
+
 ═══ CONSULTAS SOBRE DATOS ═══
 Si el usuario pregunta por gastos, salud, hábitos, proyectos, personas, etc:
 - Responder con números concretos de los datos actuales.
@@ -730,7 +958,8 @@ const stripPsickeJson=(text)=>{
 };
 
 const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone})=>{
-  const INIT_MSG={role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?'};
+  const nowTime=()=>new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  const INIT_MSG={role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?',time:nowTime()};
   const [open,setOpen]=useState(false);
   useEffect(()=>{if(openFromNav)setOpen(true);},[openFromNav]);
 
@@ -911,8 +1140,8 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     setShowSugg(false);
     const key=(apiKey||'').trim().replace(/\s+/g,'');
     if(!key){setOpen(false);onGoSettings();return;}
-    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes y pega la clave completa desde console.groq.com.'}]); return; }
-    const userMsg={role:'user',content:text};
+    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes y pega la clave completa desde console.groq.com.',time:nowTime()}]); return; }
+    const userMsg={role:'user',content:text,time:nowTime()};
     const next=[...msgs,userMsg];
     saveMsgs(next);setInput('');setLoading(true);
     try{
@@ -1424,6 +1653,26 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           const upd=[r,...(updData.carReminders||[])];
           updData={...updData,carReminders:upd};save('carReminders',upd);
           return `⏰ Recordatorio coche: ${r.title}${r.dueDate?' · '+r.dueDate:''}`;
+
+        // ── SAVE_BOOK ──
+        }else if(action.action==='SAVE_BOOK'&&action.data.title){
+          const b={id:uid(),title:action.data.title,author:action.data.author||'',
+            status:action.data.status||'want',rating:Number(action.data.rating)||0,
+            review:action.data.review||'',genre:action.data.genre||'',
+            pages:action.data.pages||'',createdAt:td};
+          const upd=[b,...(updData.books||[])];
+          updData={...updData,books:upd};save('books',upd);
+          const statusMap={want:'📚 por leer',reading:'📖 leyendo',done:'✅ leído',dropped:'❌ abandonado'};
+          return `📚 Libro: "${b.title}"${b.author?' · '+b.author:''} · ${statusMap[b.status]||b.status}${b.rating?' · ⭐'+b.rating:''}`;
+
+        // ── SAVE_JOURNAL ──
+        }else if(action.action==='SAVE_JOURNAL'&&action.data.content){
+          const e={id:uid(),date:action.data.date||td,
+            mood:action.data.mood||'',content:action.data.content,
+            gratitude:action.data.gratitude||'',intention:action.data.intention||''};
+          const upd=[e,...(updData.journalEntries||[])];
+          updData={...updData,journalEntries:upd};save('journalEntries',upd);
+          return `📓 Entrada de diario guardada${e.mood?' · '+e.mood:''}`;
         }
         return null;
       };
@@ -1522,12 +1771,12 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         setData(d=>({...d,...delta}));
       }
       const finalContent=display+(savedLabels.length?'\n\n✅ '+savedLabels.join('\n✅ '):'');
-      saveMsgs([...next,{role:'assistant',content:finalContent}]);
+      saveMsgs([...next,{role:'assistant',content:finalContent,time:nowTime()}]);
     }catch(e){
       const msg=e.message==='Failed to fetch'
         ?'No se pudo conectar. Verifica su conexión o que la API key sea válida.'
         :e.message;
-      saveMsgs([...next,{role:'assistant',content:`⚠️ ${msg}`}]);
+      saveMsgs([...next,{role:'assistant',content:`⚠️ ${msg}`,time:nowTime()}]);
     }
     setLoading(false);
   };
@@ -1545,11 +1794,14 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   return(
     <>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap');
         @keyframes psicke-in{from{opacity:0;transform:translateY(32px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes psicke-pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,200,150,0.5)}50%{box-shadow:0 0 0 12px rgba(0,200,150,0)}}
-        @keyframes psicke-dot{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
         @keyframes psicke-ring{0%{opacity:0.6;transform:scale(1)}100%{opacity:0;transform:scale(1.8)}}
+        @keyframes pop-in{from{opacity:0;transform:scale(.93) translateY(5px)}to{opacity:1;transform:scale(1) translateY(0)}}
+        @keyframes psicke-dot{0%,100%{opacity:.25;transform:scale(.65)}50%{opacity:1;transform:scale(1)}}
         .psicke-bubble:active{transform:scale(0.93)!important;}
+        .psicke-msg{animation:pop-in 0.2s cubic-bezier(.22,1,.36,1) both;}
       `}</style>
 
       {/* CHAT PANEL */}
@@ -1570,12 +1822,15 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
               <div style={{width:36,height:4,background:T.border,borderRadius:2,margin:'0 auto 14px'}}/>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${T.accent},${T.orange})`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:20}}>
+                  <div style={{width:40,height:40,borderRadius:13,background:`linear-gradient(135deg,${T.accent},${T.orange})`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:22,border:`1.5px solid ${T.borderLight}`,boxShadow:`0 0 18px rgba(79,142,247,.3),0 0 6px rgba(249,115,22,.15)`}}>
                     🧠
                   </div>
                   <div>
                     <div style={{color:T.text,fontWeight:700,fontSize:15,fontFamily:"'Playfair Display',serif",lineHeight:1}}>Psicke</div>
-                    <div style={{color:T.muted,fontSize:11,marginTop:2}}>Tu IA personal · siempre aquí</div>
+                    <div style={{display:'flex',alignItems:'center',gap:5,marginTop:2}}>
+                      <span style={{width:6,height:6,borderRadius:'50%',background:'#34d399',display:'inline-block',boxShadow:'0 0 6px #34d39966'}}/>
+                      <span style={{color:T.muted,fontSize:11}}>Tu IA personal · siempre aquí</span>
+                    </div>
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8,alignItems:'center'}}>
@@ -1618,8 +1873,12 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
               </div>
             )}
             {/* Messages */}
-            <div style={{flex:1,overflowY:'auto',padding:'0 16px',display:'flex',flexDirection:'column',gap:10,minHeight:0}}
+            <div style={{flex:1,overflowY:'auto',padding:'0 12px',display:'flex',flexDirection:'column',gap:3,minHeight:0,
+              backgroundImage:`radial-gradient(circle at 1px 1px, ${T.border} 1px, transparent 0)`,backgroundSize:'22px 22px'}}
               onClick={()=>setMsgMenu(null)}>
+              <div style={{textAlign:'center',margin:'6px 0 8px'}}>
+                <span style={{background:T.surface2,color:T.muted,fontSize:11,padding:'3px 12px',borderRadius:8,fontWeight:500,border:`1px solid ${T.border}`}}>Hoy</span>
+              </div>
               {msgs.map((m,i)=>{
                 const isUser=m.role==='user';
                 const showMenu=msgMenu===i;
@@ -1645,7 +1904,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                             </button>
                             <button onClick={()=>{
                                 if(!editVal.trim())return;
-                                // Truncate history to this message and resend with edited content
                                 const trimmed=msgs.slice(0,i);
                                 saveMsgs(trimmed);
                                 setEditingIdx(null);setEditVal('');setMsgMenu(null);
@@ -1658,18 +1916,34 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                           </div>
                         </div>
                       ):(
-                        <div
-                          onClick={e=>{if(isUser){e.stopPropagation();setMsgMenu(showMenu?null:i);}}}
-                          style={{maxWidth:'82%',padding:'9px 13px',borderRadius:13,fontSize:14,lineHeight:1.6,whiteSpace:'pre-wrap',
-                            background:isUser?(T.userBubble||T.accent):T.surface2,
-                            color:isUser?(T.userText||'#000'):T.text,
-                            borderBottomRightRadius:isUser?2:13,
-                            borderBottomLeftRadius:!isUser?2:13,
-                            border:!isUser?`1px solid ${T.border}`:'none',
+                        <div className="psicke-msg" style={{position:'relative',maxWidth:'78%'}}
+                          onClick={e=>{if(isUser){e.stopPropagation();setMsgMenu(showMenu?null:i);}}}>
+                          {/* Bubble tail */}
+                          <div style={{position:'absolute',top:0,
+                            ...(isUser?{right:-7}:{left:-7}),
+                            width:0,height:0,borderStyle:'solid',
+                            ...(isUser
+                              ?{borderWidth:'10px 0 0 8px',borderColor:`${T.userBubble||'#1a3a6e'} transparent transparent transparent`}
+                              :{borderWidth:'10px 8px 0 0',borderColor:`${T.surface2} transparent transparent transparent`})
+                          }}/>
+                          <div style={{
+                            padding:'8px 12px',paddingRight:54,
+                            borderRadius:isUser?'12px 12px 2px 12px':'12px 12px 12px 2px',
+                            fontSize:14,lineHeight:1.6,whiteSpace:'pre-wrap',wordBreak:'break-word',
+                            background:isUser?(T.userBubble||'#1a3a6e'):T.surface2,
+                            color:T.text,
+                            border:isUser?`1px solid ${T.accent}40`:`1px solid ${T.border}`,
+                            boxShadow:isUser?`0 2px 10px rgba(79,142,247,.12)`:`0 2px 8px rgba(0,0,0,.25)`,
                             cursor:isUser?'pointer':'default',
                             transition:'opacity 0.15s',
                             opacity:isUser&&showMenu?0.85:1}}>
-                          <span dangerouslySetInnerHTML={{__html:renderMd(m.content||'')}}/>
+                            <span dangerouslySetInnerHTML={{__html:renderMd(m.content||'')}}/>
+                          </div>
+                          {/* Timestamp inside bubble */}
+                          <div style={{position:'absolute',bottom:7,right:10,display:'flex',alignItems:'center',gap:3}}>
+                            <span style={{color:T.muted,fontSize:10.5}}>{m.time||''}</span>
+                            {isUser&&<svg width="16" height="11" viewBox="0 0 16 11"><path fill={T.accent} d="M15.01.99l-1.06-1.06-7.94 7.94-3.45-3.45L1.5 5.48l4.51 4.51L15.01.99zM11.01.99L9.95-.07 5.5 4.38l.53.53L11.01.99z"/></svg>}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1742,12 +2016,14 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
               )}
 
               {loading&&(
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:24,height:24,borderRadius:7,background:`${T.accent}22`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:14}}>
-                    🧠
-                  </div>
-                  <div style={{padding:'9px 14px',borderRadius:13,borderBottomLeftRadius:2,background:T.surface2,border:`1px solid ${T.border}`,display:'flex',gap:4,alignItems:'center'}}>
-                    {[0,1,2].map(i=><span key={i} style={{width:6,height:6,borderRadius:'50%',background:T.accent,display:'inline-block',animation:`psicke-dot 0.9s ${i*0.18}s ease-in-out infinite`}}/>)}
+                <div className="psicke-msg" style={{display:'flex',justifyContent:'flex-start',marginBottom:2}}>
+                  <div style={{position:'relative',background:T.surface2,borderRadius:'12px 12px 12px 2px',
+                    padding:'12px 16px',border:`1px solid ${T.border}`,boxShadow:`0 2px 8px rgba(0,0,0,.25)`,
+                    display:'flex',gap:5,alignItems:'center'}}>
+                    <div style={{position:'absolute',top:0,left:-7,width:0,height:0,borderStyle:'solid',
+                      borderWidth:'10px 8px 0 0',borderColor:`${T.surface2} transparent transparent transparent`}}/>
+                    {[0,1,2].map(j=><span key={j} style={{width:7,height:7,borderRadius:'50%',background:T.accent,
+                      display:'inline-block',animation:`psicke-dot 1.1s ${j*.22}s ease-in-out infinite`}}/>)}
                   </div>
                 </div>
               )}
@@ -1755,7 +2031,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
             </div>
 
             {/* Input area */}
-            <div style={{padding:'12px 16px 20px',flexShrink:0,borderTop:`1px solid ${T.border}`,marginTop:8}}>
+            <div style={{padding:'8px 12px 20px',flexShrink:0,borderTop:`1px solid ${T.border}`}}>
               {recording&&<div style={{textAlign:'center',color:T.red,fontSize:11,fontWeight:600,marginBottom:6,letterSpacing:1}}>● ESCUCHANDO</div>}
               {/* Slash command menu */}
               {slashMenu&&filteredCmds.length>0&&(
@@ -1774,33 +2050,46 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                   ))}
                 </div>
               )}
-              <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                <button onClick={toggleMic} aria-label={recording?'Detener grabación':'Iniciar grabación de voz'} style={{
-                  width:38,height:38,borderRadius:'50%',border:`2px solid ${recording?T.red:T.border}`,
-                  background:recording?`${T.red}22`:'transparent',cursor:'pointer',
-                  display:'flex',alignItems:'center',justifyContent:'center',
-                  color:recording?T.red:T.muted,flexShrink:0,transition:'all 0.2s'}}>
-                  <Icon name={recording?'micoff':'mic'} size={16} color={recording?T.red:undefined}/>
-                </button>
-                <textarea ref={inputRef} value={input}
-                  onChange={e=>{handleInput(e.target.value);e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px';}}
-                  onKeyDown={e=>{
-                    if(e.key==='Escape'){setSlashMenu(false);return;}
-                    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();setSlashMenu(false);send();}
-                  }}
-                  autoComplete="off" autoCorrect="off" spellCheck="false" rows={1}
-                  placeholder="Pregunta, idea o escribe / para comandos..."
-                  style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,color:T.text,
-                    padding:'10px 14px',borderRadius:12,fontSize:14,outline:'none',fontFamily:'inherit',
-                    resize:'none',lineHeight:1.5,overflow:'hidden',minHeight:42,maxHeight:120}}/>
-                <button onClick={()=>{setSlashMenu(false);send();}} disabled={!input.trim()||loading}
+              <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+                {/* Pill input container */}
+                <div style={{flex:1,background:T.surface2,borderRadius:22,border:`1px solid ${T.border}`,
+                  display:'flex',alignItems:'flex-end',padding:'6px 12px',gap:8,transition:'border-color .2s'}}
+                  onFocusCapture={e=>e.currentTarget.style.borderColor=`${T.accent}55`}
+                  onBlurCapture={e=>e.currentTarget.style.borderColor=T.border}>
+                  {/* Mic icon inside pill */}
+                  <button onClick={toggleMic} aria-label={recording?'Detener':'Micrófono'}
+                    style={{background:'none',border:'none',cursor:'pointer',padding:0,flexShrink:0,marginBottom:3,
+                      color:recording?T.red:T.muted,display:'flex',transition:'color .2s'}}>
+                    <Icon name={recording?'micoff':'mic'} size={20} color={recording?T.red:T.muted}/>
+                  </button>
+                  <textarea ref={inputRef} value={input}
+                    onChange={e=>{handleInput(e.target.value);e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px';}}
+                    onKeyDown={e=>{
+                      if(e.key==='Escape'){setSlashMenu(false);return;}
+                      if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();setSlashMenu(false);send();}
+                    }}
+                    autoComplete="off" autoCorrect="off" spellCheck="false" rows={1}
+                    placeholder="Pregunta, idea o escribe / para comandos..."
+                    style={{flex:1,background:'transparent',border:'none',outline:'none',color:T.text,
+                      fontSize:15,fontFamily:'inherit',resize:'none',lineHeight:1.5,
+                      minHeight:24,maxHeight:120,padding:0}}/>
+                </div>
+                {/* Circular gradient send button */}
+                <button onClick={()=>{setSlashMenu(false);send();}} disabled={loading}
                   aria-label="Enviar mensaje"
-                  style={{width:38,height:38,borderRadius:'50%',flexShrink:0,
-                    background:input.trim()&&!loading?T.accent:'transparent',
-                    border:input.trim()&&!loading?'none':`1px solid ${T.border}`,
-                    cursor:input.trim()&&!loading?'pointer':'not-allowed',
-                    display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s'}}>
-                  <Icon name="send" size={16} color={input.trim()&&!loading?'#000':T.dim}/>
+                  style={{width:46,height:46,borderRadius:'50%',flexShrink:0,
+                    background:`linear-gradient(135deg,${T.accent},${T.orange})`,
+                    border:'none',cursor:loading?'not-allowed':'pointer',
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    boxShadow:`0 3px 14px rgba(79,142,247,.35)`,
+                    opacity:loading?0.5:1,
+                    transition:'box-shadow .2s,opacity .2s'}}
+                  onMouseEnter={e=>{if(!loading)e.currentTarget.style.boxShadow=`0 4px 20px rgba(79,142,247,.55)`;}}
+                  onMouseLeave={e=>e.currentTarget.style.boxShadow=`0 3px 14px rgba(79,142,247,.35)`}>
+                  {input.trim()
+                    ?<svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" style={{marginLeft:2}}><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    :<svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                  }
                 </button>
               </div>
             </div>
