@@ -1,5 +1,3 @@
-import Icon from '../components/icons/Icon.jsx';
-
 const NAV_SECTIONS=[
   {label:'VIDA',items:[
     {id:'dashboard',    label:'Inicio',         icon:'home'},
