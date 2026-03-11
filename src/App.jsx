@@ -202,31 +202,37 @@ function App() {
   ];
 
   const submitCapture = useCallback(() => {
-    if (!captureText.trim() || !data) return;
+    if (!captureText.trim()) return;
     const text = captureText.trim();
     const todayStr = today();
     if (captureDest === 'task') {
       const task = { id: uid(), title: text, status: 'todo', createdAt: todayStr, projectId: '', priority: 'media', dueDate: todayStr, subtasks: [], notes: '', objectiveId: '' };
-      const updated = [...(data.tasks || []), task];
-      setData(d => ({ ...d, tasks: updated }));
-      save('tasks', updated);
+      setData(d => {
+        const updated = [...(d.tasks || []), task];
+        save('tasks', updated);
+        return { ...d, tasks: updated };
+      });
       toast.success('✅', 'Tarea creada');
     } else if (captureDest === 'note') {
       const note = { id: uid(), title: text, content: '', tags: [], areaId: '', createdAt: todayStr };
-      const updated = [...(data.notes || []), note];
-      setData(d => ({ ...d, notes: updated }));
-      save('notes', updated);
+      setData(d => {
+        const updated = [...(d.notes || []), note];
+        save('notes', updated);
+        return { ...d, notes: updated };
+      });
       toast.success('📝', 'Nota guardada');
     } else {
       const item = { id: uid(), content: text, createdAt: todayStr, processed: false };
-      const updated = [item, ...(data.inbox || [])];
-      setData(d => ({ ...d, inbox: updated }));
-      save('inbox', updated);
+      setData(d => {
+        const updated = [item, ...(d.inbox || [])];
+        save('inbox', updated);
+        return { ...d, inbox: updated };
+      });
       toast.success('📥', 'Guardado en Inbox');
     }
     setCaptureText('');
     setShowCapture(false);
-  }, [captureText, captureDest, data, setData]);
+  }, [captureText, captureDest, setData]);
 
   if (!data) return <AppLoader />;
 
