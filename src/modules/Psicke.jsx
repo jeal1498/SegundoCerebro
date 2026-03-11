@@ -1156,7 +1156,13 @@ Detalle: ${emsg}`);
             if(cl) savedLabels.push('↳ '+cl);
           }
         }
-        setData(updData);
+        // Solo aplicar las keys que Psicke realmente modificó,
+        // preservando cualquier cambio concurrente del usuario.
+        const dataSnapshot=data;
+        const delta=Object.fromEntries(
+          Object.keys(updData).filter(k=>updData[k]!==dataSnapshot[k]).map(k=>[k,updData[k]])
+        );
+        setData(d=>({...d,...delta}));
       }
       const finalContent=display+(savedLabels.length?'\n\n✅ '+savedLabels.join('\n✅ '):'');
       saveMsgs([...next,{role:'assistant',content:finalContent}]);
