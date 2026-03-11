@@ -55,9 +55,6 @@ function App() {
   const [apiKey, setApiKey]           = useState(() => { try { return localStorage.getItem('sb_gemini_key') || ''; } catch { return ''; } });
   const [showWelcome, setShowWelcome] = useState(() => { try { return !localStorage.getItem('sb_gemini_key'); } catch { return true; } });
   const [welcomeKeyInput, setWelcomeKeyInput] = useState('');
-  const [welcomeTesting, setWelcomeTesting]   = useState(false);
-  const [welcomeTestResult, setWelcomeTestResult] = useState(null);
-  const [welcomeTestMsg, setWelcomeTestMsg]   = useState('');
   const [showCapture, setShowCapture]     = useState(false);
   const [captureText, setCaptureText]     = useState('');
   const [captureDest, setCaptureDest]     = useState('inbox');
@@ -393,16 +390,12 @@ function App() {
       {isMobile && (
         <nav style={{ position:'fixed',bottom:0,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.border}`,display:'flex',zIndex:50,paddingBottom:'env(safe-area-inset-bottom)' }}>
           {MOBILE_NAV.map(item => {
-            const isPsicke = item.id === '__psicke__';
-            const active   = isPsicke ? psickeOpen : (view === item.id && !psickeOpen);
+            const active = view === item.id && !psickeOpen;
             return (
               <button key={item.id}
-                onClick={() => { if (isPsicke) { setPsickeOpen(true); } else { setPsickeOpen(false); navTo(item.id); } }}
+                onClick={() => { setPsickeOpen(false); navTo(item.id); }}
                 style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 4px 8px',border:'none',cursor:'pointer',background:'transparent',color:active?T.accent:T.dim,fontFamily:'inherit',position:'relative',gap:3 }}>
-                {isPsicke
-                  ? <div style={{ width:22,height:22,borderRadius:6,background:active?`linear-gradient(135deg,${T.accent},${T.orange})`:`${T.dim}33`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,transition:'all 0.2s' }}>🧠</div>
-                  : <Icon name={item.icon} size={22} color={active ? T.accent : undefined}/>
-                }
+                <Icon name={item.icon} size={22} color={active ? T.accent : undefined}/>
                 <span style={{ fontSize:10,fontWeight:active?600:400,color:active?T.accent:T.dim }}>{item.label}</span>
               </button>
             );
@@ -437,19 +430,22 @@ function App() {
         </div>
       )}
 
-      {/* ── Floating Capture Button ── */}
-      {!showWelcome && (
+      {/* ── Psicke FAB ── */}
+      {!showWelcome && !psickeOpen && (
         <button
-          onClick={() => { setShowCapture(true); setCaptureText(''); setCaptureDest('inbox'); }}
-          style={{ position:'fixed',bottom:isMobile?82:24,right:16,zIndex:200,width:52,height:52,borderRadius:16,background:T.accent,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 20px ${T.accent}55`,transition:'transform .15s' }}
+          onClick={() => setPsickeOpen(true)}
+          style={{ position:'fixed',bottom:isMobile?82:24,right:16,zIndex:200,width:56,height:56,borderRadius:18,
+            background:`linear-gradient(135deg,${T.accent},${T.orange})`,
+            border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
+            boxShadow:`0 4px 20px rgba(79,142,247,.45)`,transition:'transform .15s,box-shadow .15s',fontSize:28 }}
           onMouseDown={e => e.currentTarget.style.transform='scale(.92)'}
           onMouseUp={e => e.currentTarget.style.transform='scale(1)'}
           onTouchStart={e => e.currentTarget.style.transform='scale(.92)'}
           onTouchEnd={e => e.currentTarget.style.transform='scale(1)'}
+          onMouseEnter={e => e.currentTarget.style.boxShadow=`0 6px 28px rgba(79,142,247,.65)`}
+          onMouseLeave={e => e.currentTarget.style.boxShadow=`0 4px 20px rgba(79,142,247,.45)`}
         >
-          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
+          🧠
         </button>
       )}
 
@@ -517,7 +513,7 @@ function App() {
                 Activa tu asistente IA
               </div>
               <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:T.muted,lineHeight:1.6,marginBottom:20 }}>
-                Psicke necesita una <strong style={{ color:T.text }}>Groq API Key</strong> para funcionar. Es gratis y tarda menos de un minuto obtenerla.
+                Psicke necesita una <strong style={{ color:T.text }}>Google Gemini API Key</strong> para funcionar. Es gratis y tarda menos de un minuto obtenerla.
               </div>
 
               {/* Input */}
@@ -527,61 +523,32 @@ function App() {
                 </label>
                 <input
                   type="password"
-                  placeholder="gsk_..."
+                  placeholder="AIza..."
                   value={welcomeKeyInput}
-                  onChange={e => { setWelcomeKeyInput(e.target.value); setWelcomeTestResult(null); }}
-                  style={{ width:'100%',background:T.surface2,border:`1px solid ${welcomeTestResult==='ok'?T.green:welcomeTestResult==='error'?T.red:welcomeKeyInput.length>10?T.accent:T.border}`,borderRadius:10,padding:'10px 14px',color:T.text,fontSize:14,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:'none',transition:'border-color .2s' }}
+                  onChange={e => setWelcomeKeyInput(e.target.value)}
+                  style={{ width:'100%',background:T.surface2,border:`1px solid ${welcomeKeyInput.length>10?T.accent:T.border}`,borderRadius:10,padding:'10px 14px',color:T.text,fontSize:14,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:'none',transition:'border-color .2s' }}
                 />
               </div>
 
-              {/* Test result message */}
-              {welcomeTestResult&&(
-                <div style={{ fontSize:12,color:welcomeTestResult==='ok'?T.green:T.red,background:welcomeTestResult==='ok'?`${T.green}11`:`${T.red}11`,border:`1px solid ${welcomeTestResult==='ok'?T.green:T.red}33`,borderRadius:8,padding:'8px 12px',marginBottom:12,lineHeight:1.5,fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                  {welcomeTestMsg}
-                </div>
-              )}
-
-              {/* Primary CTA — validates before entering */}
+              {/* Primary CTA */}
               <button
-                onClick={async () => {
+                onClick={() => {
                   const key = welcomeKeyInput.trim();
-                  if (!key || welcomeTesting) return;
-                  setWelcomeTesting(true);
-                  setWelcomeTestResult(null);
-                  try {
-                    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-                      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: 'Hola.' }], max_tokens: 5 })
-                    });
-                    if (res.ok) {
-                      try { localStorage.setItem('sb_gemini_key', key); } catch {}
-                      setApiKey(key);
-                      setShowWelcome(false);
-                    } else if (res.status === 401) {
-                      setWelcomeTestResult('error');
-                      setWelcomeTestMsg('❌ API Key inválida. Ve a console.groq.com → API Keys y copia la clave completa.');
-                    } else {
-                      const err = await res.json().catch(() => ({}));
-                      setWelcomeTestResult('error');
-                      setWelcomeTestMsg('❌ ' + (err?.error?.message || `Error HTTP ${res.status}`));
-                    }
-                  } catch(e) {
-                    setWelcomeTestResult('error');
-                    setWelcomeTestMsg('❌ Error de red. Verifica tu conexión.');
-                  }
-                  setWelcomeTesting(false);
+                  if (!key) return;
+                  try { localStorage.setItem('sb_gemini_key',''); localStorage.setItem('sb_gemini_key', key); } catch {}
+                  setApiKey(key);
+                  setShowWelcome(false);
                 }}
-                disabled={welcomeKeyInput.trim().length < 10 || welcomeTesting}
-                style={{ width:'100%',background:welcomeKeyInput.trim().length>=10&&!welcomeTesting?T.accent:'#2a3440',border:'none',borderRadius:12,padding:'13px 0',color:welcomeKeyInput.trim().length>=10&&!welcomeTesting?'#000':T.dim,fontFamily:"'Sora',sans-serif",fontSize:14,fontWeight:700,cursor:welcomeKeyInput.trim().length>=10&&!welcomeTesting?'pointer':'not-allowed',transition:'all .2s',marginBottom:10 }}>
-                {welcomeTesting ? 'Verificando…' : 'Activar Psicke →'}
+                disabled={welcomeKeyInput.trim().length < 10}
+                style={{ width:'100%',background:welcomeKeyInput.trim().length>=10?T.accent:'#2a3440',border:'none',borderRadius:12,padding:'13px 0',color:welcomeKeyInput.trim().length>=10?'#000':T.dim,fontFamily:"'Sora',sans-serif",fontSize:14,fontWeight:700,cursor:welcomeKeyInput.trim().length>=10?'pointer':'not-allowed',transition:'all .2s',marginBottom:10 }}>
+                Activar Psicke →
               </button>
 
               {/* Get key link */}
               <div style={{ textAlign:'center',marginBottom:16 }}>
-                <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer"
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer"
                   style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,color:T.blue,textDecoration:'none' }}>
-                  Obtener API Key gratis en console.groq.com ↗
+                  Obtener API Key gratis en Google AI Studio ↗
                 </a>
               </div>
 
