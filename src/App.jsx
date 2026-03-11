@@ -121,20 +121,6 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, psickeOpen, showSearch]);
 
-  // ── Android back button trap ──
-  useEffect(() => {
-    history.pushState(null, '', window.location.href);
-    const onPop = () => {
-      history.pushState(null, '', window.location.href);
-      if (psickeOpen) { setPsickeOpen(false); return; }
-      if (showSearch) { setShowSearch(false); return; }
-      if (view !== 'dashboard') { navTo('dashboard'); }
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, psickeOpen, showSearch]);
-
   // ── PWA + SW ──
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
