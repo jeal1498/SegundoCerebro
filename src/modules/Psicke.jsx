@@ -928,7 +928,11 @@ const stripPsickeJson=(text)=>{
     /^TIPO DE ENTRADA:/m,
     /^NIVEL JERÁRQUICO:/m,
     /^ÁRBOL DE DECISIÓN:/m,
+    /^\[PASO/m,
+    /^\[ETAPA/m,
   ];
+  // Also strip any [PASO...] bracket blocks entirely
+  out=out.replace(/\[PASO[\s\S]*?\]/g,'').replace(/\[ETAPA[\s\S]*?\]/g,'');
   // Find the last line that looks like a reasoning header
   const lines=out.split('\n');
   let lastReasoningLine=-1;
@@ -1919,7 +1923,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                               :{borderWidth:'10px 8px 0 0',borderColor:`${T.surface2} transparent transparent transparent`})
                           }}/>
                           <div style={{
-                            padding:'8px 12px',paddingRight:54,
+                            padding:'8px 12px 24px',
                             borderRadius:isUser?'12px 12px 2px 12px':'12px 12px 12px 2px',
                             fontSize:14,lineHeight:1.6,whiteSpace:'pre-wrap',wordBreak:'break-word',
                             background:isUser?(T.userBubble||'#1a3a6e'):T.surface2,
