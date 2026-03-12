@@ -43,6 +43,7 @@ const Sueno            = lazy(() => import('./modules/Sueno.jsx'));
 
 // ── Storage helpers (re-export pattern for App-level use) ──
 import { save, load } from './storage/index.js';
+import { registerNotificationSW, checkOnFocus } from './utils/notifications.js';
 import { uid, today } from './utils/helpers.js';
 import { initData } from './context/initialData.js';
 
@@ -70,6 +71,12 @@ function App() {
   });
 
   const isMobile = true; // App is mobile-first
+
+  // ── Registrar SW de notificaciones al iniciar ──
+  useEffect(() => {
+    registerNotificationSW();
+    checkOnFocus();
+  }, []);
 
   // ── System theme sync ──
   useEffect(() => {
