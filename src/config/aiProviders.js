@@ -4,7 +4,44 @@
 // ╚══════════════════════════════════════════════════════╝
 
 export const PROVIDERS = [
-  // ── Gemini (prioridad 1: tier gratuito generoso) ──────
+  // ── Anthropic (prioridad 1: principal) ────────────────
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    label: 'Claude Haiku 4.5',
+    keyStorage: 'sb_ai_key_anthropic',
+    model: 'claude-haiku-4-5-20251001',
+    placeholder: 'sk-ant-...',
+    docsUrl: 'https://console.anthropic.com/settings/keys',
+    docsLabel: 'console.anthropic.com ↗',
+    color: '#d97706',
+    buildRequest: (messages, systemPrompt, key) => ({
+      url: 'https://api.anthropic.com/v1/messages',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: messages
+          .filter(m => m.role !== 'system')
+          .map(m => ({
+            role: m.role === 'assistant' ? 'assistant' : 'user',
+            content: m.content || ' ',
+          })),
+      },
+    }),
+    parseResponse: (data) => data.content?.[0]?.text,
+    isQuotaError: (status, body) => {
+      return status === 529 || (status === 429 && (body?.error?.type || '').includes('overloaded'));
+    },
+  },
+
+  // ── Gemini (prioridad 2: fallback gratuito) ───────────
   {
     id: 'gemini',
     name: 'Gemini',
@@ -37,76 +74,7 @@ export const PROVIDERS = [
     },
   },
 
-  // ── OpenAI ────────────────────────────────────────────
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    label: 'GPT-4o Mini',
-    keyStorage: 'sb_ai_key_openai',
-    model: 'gpt-4o-mini',
-    placeholder: 'sk-...',
-    docsUrl: 'https://platform.openai.com/api-keys',
-    docsLabel: 'platform.openai.com ↗',
-    color: '#10a37f',
-    buildRequest: (messages, systemPrompt, key) => ({
-      url: 'https://api.openai.com/v1/chat/completions',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`,
-      },
-      body: {
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        temperature: 0.7,
-        max_tokens: 800,
-      },
-    }),
-    parseResponse: (data) => data.choices?.[0]?.message?.content,
-    isQuotaError: (status, body) => {
-      if (status !== 429) return false;
-      const msg = (body?.error?.message || '').toLowerCase();
-      return msg.includes('quota') || msg.includes('day') || msg.includes('limit');
-    },
-  },
-
-  // ── Anthropic ─────────────────────────────────────────
-  {
-    id: 'anthropic',
-    name: 'Anthropic',
-    label: 'Claude Haiku',
-    keyStorage: 'sb_ai_key_anthropic',
-    model: 'claude-haiku-4-5',
-    placeholder: 'sk-ant-...',
-    docsUrl: 'https://console.anthropic.com/settings/keys',
-    docsLabel: 'console.anthropic.com ↗',
-    color: '#d97706',
-    buildRequest: (messages, systemPrompt, key) => ({
-      url: 'https://api.anthropic.com/v1/messages',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: {
-        model: 'claude-haiku-4-5',
-        max_tokens: 800,
-        system: systemPrompt,
-        messages: messages
-          .filter(m => m.role !== 'system')
-          .map(m => ({
-            role: m.role === 'assistant' ? 'assistant' : 'user',
-            content: m.content || ' ',
-          })),
-      },
-    }),
-    parseResponse: (data) => data.content?.[0]?.text,
-    isQuotaError: (status, body) => {
-      return status === 529 || (status === 429 && (body?.error?.type || '').includes('overloaded'));
-    },
-  },
-
-  // ── Groq ──────────────────────────────────────────────
+  // ── Groq (prioridad 3: fallback rápido) ───────────────
   {
     id: 'groq',
     name: 'Groq',
@@ -168,10 +136,6 @@ export const migrateLegacyKeys = () => {
     const oldGemini = localStorage.getItem('sb_gemini_key');
     if (oldGemini && !localStorage.getItem('sb_ai_key_gemini')) {
       localStorage.setItem('sb_ai_key_gemini', oldGemini);
-    }
-    const oldOpenAI = localStorage.getItem('psicke_openai_key');
-    if (oldOpenAI && !localStorage.getItem('sb_ai_key_openai')) {
-      localStorage.setItem('sb_ai_key_openai', oldOpenAI);
     }
   } catch {}
 };
