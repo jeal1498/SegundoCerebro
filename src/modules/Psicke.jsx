@@ -550,11 +550,16 @@ const stripPsickeJson=(text)=>{
   return out.trim();
 };
 
-const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone})=>{
+const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone,onRequestNotifPermission})=>{
   const nowTime=()=>new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   const INIT_MSG={role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?',time:nowTime()};
   const [open,setOpen]=useState(false);
-  useEffect(()=>{if(openFromNav)setOpen(true);},[openFromNav]);
+  useEffect(()=>{
+    if(openFromNav){
+      setOpen(true);
+      onRequestNotifPermission?.();
+    }
+  },[openFromNav]);
 
   // ── Welcome flow after onboarding ──────────────────────────────────────
   useEffect(()=>{
