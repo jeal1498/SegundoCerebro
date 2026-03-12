@@ -474,11 +474,25 @@ ${examples.join('\n')}
 ⚠️ REGLA FINAL: Si el usuario menciona algo que debe guardarse, incluye el JSON. Sin JSON = dato perdido.
 
 ═══ RECORDATORIOS CON NOTIFICACIÓN PUSH ═══
-Usa SAVE_REMINDER cuando el usuario pida que le recuerdes algo a una hora/fecha específica.
-Campos: title✦, body, timeStr (texto legible), fireAt (ISO string calculado desde HOY que es ${t}).
-SIEMPRE incluye fireAt como ISO string calculado. Ejemplo para "hoy a las 4pm":
+Usa SAVE_REMINDER cuando el usuario pida que le recuerdes algo a una hora/fecha específica, incluyendo recordatorios recurrentes.
+Campos: title✦, body, timeStr (texto legible), fireAt (ISO string del PRIMER evento calculado desde HOY ${t}), rrule (opcional, RRULE RFC5545 para recurrencia).
+
+RRULES frecuentes:
+- "cada día / diario"          → "RRULE:FREQ=DAILY"
+- "cada semana / semanal"       → "RRULE:FREQ=WEEKLY"
+- "cada lunes"                  → "RRULE:FREQ=WEEKLY;BYDAY=MO"
+- "cada lunes y miércoles"      → "RRULE:FREQ=WEEKLY;BYDAY=MO,WE"
+- "cada mes / mensual"          → "RRULE:FREQ=MONTHLY"
+- "cada año / anual"            → "RRULE:FREQ=YEARLY"
+- "cada lunes por 4 semanas"    → "RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=4"
+
+Ejemplo recurrente — "recuérdame cada lunes a las 8am tomar vitaminas":
+{"action":"SAVE_REMINDER","data":{"title":"Tomar vitaminas","body":"","timeStr":"cada lunes a las 8am","fireAt":"${(()=>{const d=new Date();d.setDate(d.getDate()+(1-d.getDay()+7)%7||7);d.setHours(8,0,0,0);return d.toISOString();})()}","rrule":"RRULE:FREQ=WEEKLY;BYDAY=MO"}}
+
+Ejemplo único — "hoy a las 4pm":
 {"action":"SAVE_REMINDER","data":{"title":"Ir por Julieta","body":"Escuela","timeStr":"hoy a las 4:00 PM","fireAt":"${new Date(new Date().setHours(16,0,0,0)).toISOString()}"}}
-NUNCA inventes la hora si el usuario no la menciona.
+
+SIEMPRE incluye fireAt calculado. NUNCA inventes la hora si el usuario no la menciona.
 
 ${challengeBlock}`;
 };
@@ -1235,6 +1249,7 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
             body:action.data.body||'',
             fireAt:action.data.fireAt||null,
             timeStr:action.data.timeStr||'',
+            rrule:action.data.rrule||null,
             done:false,createdAt:td};
           // Guardar en data.reminders
           const upd=[r,...(updData.reminders||[])];
@@ -1257,8 +1272,10 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
                 title:r.title,
                 body:r.body||'',
                 fireAt:resolvedFireAt,
+                rrule:r.rrule||null,
               }).then(()=>{
-                toast.success('📅 Evento creado en Google Calendar');
+                const msg=r.rrule?'📅 Evento recurrente creado en Google Calendar':'📅 Evento creado en Google Calendar';
+                toast.success(msg);
               }).catch((err)=>{
                 console.error('[GCal]',err);
                 toast.error('Google Calendar falló: '+err.message);
@@ -1269,7 +1286,7 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
               scheduleNotification({id:r.id,title:'⏰ '+r.title,body:r.body||'Segundo Cerebro',fireAt:resolvedFireAt,url:'/'}).catch(()=>{});
             }
           }
-          return `⏰ Recordatorio: ${r.title}${r.timeStr?' · '+r.timeStr:''}`;
+          const recLabel=r.rrule?' 🔁':''; return `⏰ Recordatorio${recLabel}: ${r.title}${r.timeStr?' · '+r.timeStr:''}`;
 
         // ── DELETE_BUDGET ──
         }else if(action.action==='DELETE_BUDGET'&&action.data.title){
