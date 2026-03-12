@@ -8,7 +8,7 @@ import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, Metri
 import { callWithFallback, hasAnyKey } from '../config/aiProviders.js';
 import { toast } from './Toast.jsx';
 import { scheduleNotification, parseReminderTime } from '../utils/notifications.js';
-import { createCalendarEvent, isConnected as isGCalConnected } from '../utils/googleCalendar.js';
+import { createCalendarEvent, deleteCalendarEvent, isConnected as isGCalConnected } from '../utils/googleCalendar.js';
 
 const OB_AREAS = [
   {id:'salud',      label:'Salud',        emoji:'💪'},
@@ -496,6 +496,10 @@ Ejemplo único — "hoy a las 4pm":
 {"action":"SAVE_REMINDER","data":{"title":"Ir por Julieta","body":"Escuela","timeStr":"hoy a las 4:00 PM","fireAt":"${new Date(new Date().setHours(16,0,0,0)).toISOString()}"}}
 
 SIEMPRE incluye fireAt calculado. NUNCA inventes la hora si el usuario no la menciona.
+
+Usa CANCEL_REMINDER cuando el usuario quiera cancelar, borrar o eliminar un recordatorio existente.
+Campo: title (nombre o fragmento del recordatorio a cancelar).
+Ejemplo: {"action":"CANCEL_REMINDER","data":{"title":"Ir por Julieta"}}
 
 ${challengeBlock}`;
 };
@@ -1276,7 +1280,13 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
                 body:r.body||'',
                 fireAt:resolvedFireAt,
                 rrule:r.rrule||null,
-              }).then(()=>{
+              }).then((result)=>{
+                // Guardar eventId para poder cancelar después
+                if(result?.eventId){
+                  const reminders=JSON.parse(localStorage.getItem('sb_reminders')||'[]');
+                  const idx=reminders.findIndex(x=>x.id===r.id);
+                  if(idx>=0){reminders[idx].gcalEventId=result.eventId;localStorage.setItem('sb_reminders',JSON.stringify(reminders));}
+                }
                 const msg=r.rrule?'📅 Evento recurrente creado en Google Calendar':'📅 Evento creado en Google Calendar';
                 toast.success(msg);
               }).catch((err)=>{
@@ -1290,6 +1300,26 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
             }
           }
           const recLabel=r.rrule?' 🔁':''; return `⏰ Recordatorio${recLabel}: ${r.title}${r.timeStr?' · '+r.timeStr:''}`;
+
+        // ── CANCEL_REMINDER ──
+        }else if(action.action==='CANCEL_REMINDER'&&action.data.title){
+          const needle=(action.data.title||'').toLowerCase();
+          const reminders=(updData.reminders||[]);
+          const target=reminders.find(r=>!r.done&&r.title.toLowerCase().includes(needle));
+          if(target){
+            // Marcar como cancelado en data
+            const upd=reminders.map(r=>r.id===target.id?{...r,done:true,cancelledAt:td}:r);
+            updData={...updData,reminders:upd};save('reminders',upd);
+            // Borrar de Google Calendar si tiene eventId
+            if(target.gcalEventId&&isGCalConnected()){
+              deleteCalendarEvent(target.gcalEventId)
+                .then(()=>toast.success('📅 Evento eliminado de Google Calendar'))
+                .catch((err)=>toast.error('No se pudo borrar de GCal: '+err.message));
+            }
+            return `❌ Recordatorio cancelado: "${target.title}"`;
+          } else {
+            return `No encontré un recordatorio activo con ese nombre.`;
+          }
 
         // ── DELETE_BUDGET ──
         }else if(action.action==='DELETE_BUDGET'&&action.data.title){
