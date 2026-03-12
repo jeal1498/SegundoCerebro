@@ -44,6 +44,7 @@ const Sueno            = lazy(() => import('./modules/Sueno.jsx'));
 // ── Storage helpers (re-export pattern for App-level use) ──
 import { save, load } from './storage/index.js';
 import { registerNotificationSW, checkOnFocus, requestPermission, getPermission, startFocusCheck } from './utils/notifications.js';
+import { handleOAuthCallback, isConnected as isGCalConnected } from './utils/googleCalendar.js';
 import { uid, today } from './utils/helpers.js';
 import { initData } from './context/initialData.js';
 
@@ -77,6 +78,14 @@ function App() {
     registerNotificationSW();
     checkOnFocus();
     startFocusCheck();
+    // Procesar callback de Google OAuth si venimos de autorizar
+    if (window.location.hash.includes('access_token')) {
+      const ok = handleOAuthCallback();
+      if (ok) {
+        toast.success('Google Calendar conectado ✓');
+        window.dispatchEvent(new CustomEvent('gcal-connected'));
+      }
+    }
   }, []);
 
   // ── Pedir permiso de notificaciones tras interacción del usuario ──
