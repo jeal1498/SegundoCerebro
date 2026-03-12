@@ -17,7 +17,7 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GROQ_MODELS = ['llama-3.3-70b-versatile'];
+const OPENAI_MODELS = ['gpt-4o-mini'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 // ── Intent detection ──
@@ -25,9 +25,9 @@ const detectIntent=(msg)=>{
   const m=msg.toLowerCase();
   const i=new Set();
   if(/(gast|ingres|dinero|pag[oué]|transacc|presupuest|saldo|deuda|factura|precio|costo|cobr|efectivo|billete|tarjeta)/i.test(m)) i.add('finanzas');
-  if(/(salud|peso|ejerc|gym|corr|caminé|caminar|medicament|pastilla|doctor|médico|workout|calorí|proteín|agua|sueño|dormí|dormir|horas de|vacuna(?! mascota)|suplemento)/i.test(m)) i.add('salud');
+  if(/(salud|peso|ejerc|gym|corr|caminé|caminar|medicament|pastilla|doctor|médico|dentista|muela|clínica|workout|calorí|proteín|agua|sueño|dormí|dormir|horas de|vacuna(?! mascota)|suplemento)/i.test(m)) i.add('salud');
   if(/(coche|carro|auto|km|kilómetro|gasolina|aceite|llanta|freno|mecánico|taller|afinaci|servicio del)/i.test(m)) i.add('coche');
-  if(/(casa|hogar|depa|departamento|plomero|electricist|limpieza|mantenimiento del hogar|documento|seguro del hogar|garantía|contrato)/i.test(m)) i.add('hogar');
+  if(/(casa|hogar|depa|departamento|plomero|electricist|limpieza|mantenimiento del hogar|documento|seguro del hogar|garantía|contrato|dentista|médico|doctor|clínica)/i.test(m)) i.add('hogar');
   if(/(amig|famili|conocí|llamé|mensaj[eé]|reunión con|cita con|cumpleaños|relaci|persona nueva|conoce)/i.test(m)) i.add('relaciones');
   if(/(proyecto|app|web|código|desarrollar|lanzar|startup|side project|repo|deploy)/i.test(m)) i.add('proyectos');
   if(/(dormí|soñé|cama|desperté|sueño raro|pesadilla|sueño lúcido|registro de sueño)/i.test(m)) i.add('sueno');
@@ -154,7 +154,12 @@ const modHogar=`  HOGAR:
     Categorías: General, Jardín, Plomería, Electricidad, Climatización, Electrodomésticos, Otro
   • Documento/seguro/contrato → SAVE_HOME_DOC (name, category, expiryDate, provider, annualCost)
     Categorías: Seguro, Garantía, Contrato, Escritura, Impuesto, Membresía, Suscripción, Otro
-  • Contacto de servicio → SAVE_HOME_CONTACT (name, role, phone, email)`;
+  • Contacto de servicio → SAVE_HOME_CONTACT (name, role, phone, email)
+    Roles: Plomero, Electricista, Médico, Dentista, Veterinario, Mecánico, Abogado, Contador, Otro
+  ⚠️ VISITA MÉDICA/DENTAL: "Fui al dentista/médico/doctor" → SIEMPRE 3 acciones:
+    1. SAVE_HOME_CONTACT (name o "Dentista/Médico", role)
+    2. SAVE_TRANSACTION (egreso, Salud, monto si se menciona)
+    3. SAVE_FOLLOWUP (siguiente cita si se menciona, fecha calculada)`;
 
 const modRelaciones=`  RELACIONES:
   • Nueva persona → SAVE_PERSON (name, relation, birthday, emoji, phone, email)
@@ -231,6 +236,18 @@ const exSalud=(t)=>`Workout: \`\`\`json
 \`\`\`
 Métrica: \`\`\`json
 {"action":"SAVE_HEALTH_METRIC","data":{"type":"peso","value":"75.5","unit":"kg","date":"${t}","notes":""}}
+\`\`\`
+Visita dentista/médico — SIEMPRE 3 bloques (contacto + gasto + siguiente cita): \`\`\`json
+{"action":"SAVE_HOME_CONTACT","data":{"name":"Dentista","role":"Dentista","phone":"","email":"","notes":"Extracción muela"}}
+\`\`\`
+\`\`\`json
+{"action":"SAVE_TRANSACTION","data":{"type":"egreso","amount":1800,"currency":"MXN","category":"Salud","description":"Dentista — extracción de muela","date":"${t}"}}
+\`\`\`
+\`\`\`json
+{"action":"SAVE_FOLLOWUP","data":{"personName":"Dentista","task":"Cita de seguimiento dental","dueDate":"${new Date(new Date().setMonth(new Date().getMonth()+3)).toISOString().slice(0,10)}","priority":"media"}}
+\`\`\`
+Pesadilla (tipo inferido del mensaje, NO preguntar): \`\`\`json
+{"action":"SAVE_DREAM","data":{"date":"${t}","title":"Persecución en el bosque","description":"Me perseguían en un bosque oscuro","type":"Pesadilla","emotions":"miedo, angustia","tags":"persecución"}}
 \`\`\``;
 
 const exCoche=(t)=>`Mantenimiento coche (SIEMPRE 3 bloques si hay costo y km): \`\`\`json
@@ -355,6 +372,15 @@ REGLA 1 — PREGUNTA O GUARDA, NUNCA LOS DOS A LA VEZ:
   ✗ MAL: "Para registrar necesito saber X... ✅ Guardado"
   ✓ BIEN: "Para registrar necesito saber X, Y y Z." (sin JSON)
   ✓ BIEN: (respuesta corta confirmando) + JSON (sin preguntas)
+
+  CASOS ESPECÍFICOS DE REGLA 1:
+  → Libro terminado sin rating: PREGUNTAR rating y review. NO guardar hasta tenerlo.
+    ✗ MAL: "¿Qué calificación le das? ✅ Libro leído"
+    ✓ BIEN: "¿Qué calificación del 1-5 le das a Atomic Habits? ¿Algún comentario breve?" (sin JSON)
+  → Sueño/pesadilla: Si el tipo es OBVIO del mensaje, NO preguntar — inferirlo directo.
+    "me perseguían", "me desperté asustado", "pesadilla" → type:Pesadilla sin preguntar.
+    "fue un sueño bonito", "soñé algo agradable" → type:Agradable sin preguntar.
+    Solo preguntar el tipo si el mensaje es genuinamente ambiguo.
 
 REGLA 2 — MENSAJES MULTI-ÁREA:
   Si el mensaje toca N áreas → procesa CADA UNA independientemente en orden.
@@ -691,7 +717,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     setShowSugg(false);
     const key=(apiKey||'').trim().replace(/\s+/g,'');
     if(!key){setOpen(false);onGoSettings();return;}
-    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes y pega la clave completa desde console.groq.com.',time:nowTime()}]); return; }
+    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes y pega la clave completa desde platform.openai.com → API Keys.',time:nowTime()}]); return; }
     const userMsg={role:'user',content:text,time:nowTime()};
     const next=[...msgs,userMsg];
     saveMsgs(next);setInput('');setLoading(true);
@@ -703,7 +729,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         content:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '
       }));
       const body={
-        model: GROQ_MODELS[0], // overridden per callApi
+        model: OPENAI_MODELS[0], // overridden per callApi
         messages:[
           {role:'system', content:sysPrompt},
           {role:'user',    content:'Hola Psicke, estoy listo.'},
@@ -716,9 +742,9 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
 
       // API call with model fallback + retry on 429
       const callApi=async(modelIdx=0, attempt=0)=>{
-        const model = GROQ_MODELS[modelIdx] || GROQ_MODELS[0];
+        const model = OPENAI_MODELS[modelIdx] || OPENAI_MODELS[0];
         const res=await fetch(
-          'https://api.groq.com/openai/v1/chat/completions',
+          'https://api.openai.com/v1/chat/completions',
           {method:'POST',
            headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
            body:JSON.stringify({...body, model})}
@@ -728,8 +754,8 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           const emsg=(err?.error?.message||'').toLowerCase();
           // Daily quota exhausted → try next model
           if(emsg.includes('quota')||emsg.includes('day')||emsg.includes('limit')){
-            if(modelIdx<GROQ_MODELS.length-1) return callApi(modelIdx+1, 0);
-            throw new Error('Cuota diaria agotada en Groq. Intenta mañana o ve a console.groq.com para revisar tus límites.');
+            if(modelIdx<OPENAI_MODELS.length-1) return callApi(modelIdx+1, 0);
+            throw new Error('Cuota o límite de OpenAI alcanzado. Revisa tu saldo en platform.openai.com/usage.');
           }
           // Rate limit por minuto → retry con backoff
           if(attempt<2){
@@ -737,19 +763,19 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
             await new Promise(r=>setTimeout(r,wait));
             return callApi(modelIdx, attempt+1);
           }
-          if(modelIdx<GROQ_MODELS.length-1) return callApi(modelIdx+1, 0);
+          if(modelIdx<OPENAI_MODELS.length-1) return callApi(modelIdx+1, 0);
           throw new Error('Demasiadas solicitudes. Espera unos minutos e intenta de nuevo.');
         }
         if(res.status===401){
-          throw new Error('API Key de Groq no válida. Ve a Ajustes → borra la clave → pega la nueva desde console.groq.com → API Keys.');
+          throw new Error('API Key de OpenAI no válida. Ve a Ajustes → borra la clave → pega la nueva desde platform.openai.com → API Keys.');
         }
         if(res.status===400){
           const err=await res.json().catch(()=>({}));
           throw new Error(`Error 400: ${err?.error?.message||'Solicitud inválida'}`);
         }
         if(res.status===404){
-          if(modelIdx<GROQ_MODELS.length-1) return callApi(modelIdx+1, 0);
-          throw new Error('Ningún modelo Groq disponible para esta API Key.');
+          if(modelIdx<OPENAI_MODELS.length-1) return callApi(modelIdx+1, 0);
+          throw new Error('Modelo de OpenAI no disponible para esta API Key.');
         }
         if(!res.ok){
           const err=await res.json().catch(()=>({}));
@@ -759,7 +785,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
       };
 
       const d=await callApi();
-      // Groq uses OpenAI response format
+      // OpenAI response format
       const raw=d.choices?.[0]?.message?.content;
       if(!raw){
         const reason=d.choices?.[0]?.finish_reason||'desconocido';
