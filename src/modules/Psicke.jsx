@@ -475,9 +475,10 @@ ${examples.join('\n')}
 
 ═══ RECORDATORIOS CON NOTIFICACIÓN PUSH ═══
 Usa SAVE_REMINDER cuando el usuario pida que le recuerdes algo a una hora/fecha específica.
-Campos: title✦, body, timeStr (texto legible como "mañana a las 8am"), fireAt (timestamp ms si lo calculas).
-Ejemplo: {"action":"SAVE_REMINDER","data":{"title":"Pagar seguro del coche","body":"Vence hoy","timeStr":"mañana a las 9am"}}
-NUNCA inventes la hora si el usuario no la dice — en ese caso omite timeStr y fireAt.
+Campos: title✦, body, timeStr (texto legible), fireAt (ISO string calculado desde HOY que es ${t}).
+SIEMPRE incluye fireAt como ISO string calculado. Ejemplo para "hoy a las 4pm":
+{"action":"SAVE_REMINDER","data":{"title":"Ir por Julieta","body":"Escuela","timeStr":"hoy a las 4:00 PM","fireAt":"${new Date(new Date().setHours(16,0,0,0)).toISOString()}"}}
+NUNCA inventes la hora si el usuario no la menciona.
 
 ${challengeBlock}`;
 };
@@ -1238,8 +1239,13 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
           // Guardar en data.reminders
           const upd=[r,...(updData.reminders||[])];
           updData={...updData,reminders:upd};save('reminders',upd);
-          // Calcular fireAt desde timeStr si no viene directo
-          let resolvedFireAt=r.fireAt;
+          // Normalizar fireAt: puede venir como ISO string de Claude o ms number
+          let resolvedFireAt=null;
+          if(r.fireAt){
+            const ts=typeof r.fireAt==='string'?new Date(r.fireAt).getTime():Number(r.fireAt);
+            if(!isNaN(ts)&&ts>Date.now()-60000) resolvedFireAt=ts;
+          }
+          // Fallback: calcular desde timeStr
           if(!resolvedFireAt&&r.timeStr){
             const parsed=parseReminderTime(r.timeStr);
             if(parsed?.fireAt) resolvedFireAt=parsed.fireAt;
