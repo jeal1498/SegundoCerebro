@@ -744,7 +744,7 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
     saveMsgs(next);setInput('');setLoading(true);
     try{
       const sysPrompt=buildPsickePrompt(data,challenge,text);
-      const cleanMsgs=next.slice(-2).map(m=>({
+      const cleanMsgs=next.slice(-4).map(m=>({
         role:m.role==='assistant'?'assistant':'user',
         content:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '
       }));
