@@ -521,7 +521,7 @@ function App() {
                 Activa tu asistente IA
               </div>
               <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:T.muted,lineHeight:1.6,marginBottom:20 }}>
-                Psicke necesita una <strong style={{ color:T.text }}>Google Gemini API Key</strong> para funcionar. Es gratis y tarda menos de un minuto obtenerla.
+                Psicke necesita una <strong style={{ color:T.text }}>Claude API Key (Anthropic)</strong> para funcionar. Tarda menos de un minuto obtenerla.
               </div>
 
               {/* Input */}
@@ -531,7 +531,7 @@ function App() {
                 </label>
                 <input
                   type="password"
-                  placeholder="AIza..."
+                  placeholder="sk-ant-..."
                   value={welcomeKeyInput}
                   onChange={e => setWelcomeKeyInput(e.target.value)}
                   style={{ width:'100%',background:T.surface2,border:`1px solid ${welcomeKeyInput.length>10?T.accent:T.border}`,borderRadius:10,padding:'10px 14px',color:T.text,fontSize:14,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:'none',transition:'border-color .2s' }}
@@ -543,7 +543,7 @@ function App() {
                 onClick={() => {
                   const key = welcomeKeyInput.trim();
                   if (!key) return;
-                  setProviderKey('gemini', key);
+                  setProviderKey('anthropic', key);
                   setHasKey(true);
                   setShowWelcome(false);
                 }}
@@ -554,9 +554,9 @@ function App() {
 
               {/* Get key link */}
               <div style={{ textAlign:'center',marginBottom:16 }}>
-                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer"
+                <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer"
                   style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,color:T.blue,textDecoration:'none' }}>
-                  Obtener API Key gratis en Google AI Studio ↗
+                  Obtener API Key en Anthropic Console ↗
                 </a>
               </div>
 
