@@ -61,6 +61,11 @@ const Settings = ({isMobile,data,setData,viewHint,onConsumeHint,onOpenPsicke,onI
   const [reviewStep,setReviewStep]=useState(0);
   const [notifEnabled,setNotifEnabled]=useState(()=>{try{return localStorage.getItem('sb_notifs')==='true';}catch{return false;}});
   const [gcalConnected,setGcalConnected]=useState(()=>isGCalConnected());
+  useEffect(()=>{
+    const handler=()=>setGcalConnected(isGCalConnected());
+    window.addEventListener('gcal-connected',handler);
+    return ()=>window.removeEventListener('gcal-connected',handler);
+  },[]);
   const [notifSettings,setNotifSettings]=useState(()=>{
     try{return JSON.parse(localStorage.getItem('sb_notif_cfg')||'{}');}catch{return {};}
   });
