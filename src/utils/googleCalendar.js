@@ -80,6 +80,22 @@ export function handleOAuthCallback() {
   } catch { return false; }
 }
 
+// ── Eliminar evento de Google Calendar ───────────────────────────────
+export async function deleteCalendarEvent(eventId) {
+  const token = getToken();
+  if (!token) throw new Error('No conectado a Google Calendar');
+
+  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+
+  if (res.status === 401) { clearToken(); throw new Error('Token expirado. Reconecta Google Calendar.'); }
+  if (res.status === 404) return { ok: true, notFound: true }; // ya no existe, igual ok
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  return { ok: true };
+}
+
 // ── Crear evento en Google Calendar ──────────────────────────────────
 export async function createCalendarEvent(reminder) {
   const token = getToken();
