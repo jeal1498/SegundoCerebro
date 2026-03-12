@@ -577,6 +577,11 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   const [editVal,setEditVal]=useState('');
   const [copied,setCopied]=useState(null);
   const [slashMenu,setSlashMenu]=useState(false);
+  const [showKeyPanel,setShowKeyPanel]=useState(false);
+  const [savedKey,setSavedKey]=useState(()=>{try{return localStorage.getItem('psicke_openai_key')||'';}catch{return '';}});
+  const [keyInput,setKeyInput]=useState('');
+  const [keySaved,setKeySaved]=useState(false);
+  const effectiveKey=((apiKey||savedKey)||'').trim().replace(/\s+/g,'');
   const bottomRef=useRef(null);
   const recRef=useRef(null);
   const inputRef=useRef(null);
@@ -715,9 +720,9 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     const text=(textOverride??input).trim();
     if(!text||loading)return;
     setShowSugg(false);
-    const key=(apiKey||'').trim().replace(/\s+/g,'');
-    if(!key){setOpen(false);onGoSettings();return;}
-    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes y pega la clave completa desde platform.openai.com → API Keys.',time:nowTime()}]); return; }
+    const key=effectiveKey;
+    if(!key){setShowKeyPanel(true);return;}
+    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes 🔑 y pega la clave completa desde platform.openai.com → API Keys.',time:nowTime()}]); return; }
     const userMsg={role:'user',content:text,time:nowTime()};
     const next=[...msgs,userMsg];
     saveMsgs(next);setInput('');setLoading(true);
@@ -1469,6 +1474,11 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                     style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.dim,fontSize:11,fontFamily:'inherit'}}>
                     Borrar
                   </button>
+                  <button onClick={()=>{setKeyInput(savedKey);setShowKeyPanel(true);}}
+                    title="Configurar API Key de OpenAI"
+                    style={{background:effectiveKey?'none':`${T.orange}22`,border:`1px solid ${effectiveKey?T.border:T.orange}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:effectiveKey?T.dim:T.orange,fontSize:11,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>
+                    🔑{!effectiveKey&&<span style={{fontWeight:600}}>API Key</span>}
+                  </button>
                   <button onClick={()=>closePanel()}
                     style={{background:'none',border:'none',cursor:'pointer',color:T.muted,display:'flex',padding:4}}>
                     <Icon name="x" size={20}/>
@@ -1725,6 +1735,86 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                 </button>
               </div>
             </div>
+        </div>
+      )}
+
+      {/* ── API KEY PANEL ── */}
+      {showKeyPanel&&(
+        <div style={{position:'fixed',inset:0,zIndex:1100,background:'rgba(0,0,0,0.72)',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}
+          onClick={e=>{if(e.target===e.currentTarget)setShowKeyPanel(false);}}>
+          <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:20,padding:28,width:'100%',maxWidth:420,boxShadow:'0 24px 60px rgba(0,0,0,0.6)',animation:'pop-in 0.2s cubic-bezier(.22,1,.36,1) both'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
+              <div style={{width:40,height:40,borderRadius:12,background:`linear-gradient(135deg,${T.accent}33,${T.orange}22)`,border:`1px solid ${T.accent}30`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>🔑</div>
+              <div>
+                <div style={{color:T.text,fontWeight:700,fontSize:15}}>API Key de OpenAI</div>
+                <div style={{color:T.muted,fontSize:11,marginTop:2}}>Necesaria para que Psicke funcione</div>
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{display:'block',color:T.muted,fontSize:11,fontWeight:600,letterSpacing:0.8,textTransform:'uppercase',marginBottom:6}}>Tu clave de OpenAI</label>
+              <input
+                type="password"
+                value={keyInput}
+                onChange={e=>setKeyInput(e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter'&&keyInput.trim()){const k=keyInput.trim();try{localStorage.setItem('psicke_openai_key',k);}catch(err){}setSavedKey(k);setKeySaved(true);setTimeout(()=>{setKeySaved(false);setShowKeyPanel(false);},1200);}}}
+                placeholder="sk-proj-..."
+                autoComplete="off"
+                style={{width:'100%',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:12,padding:'11px 14px',
+                  color:T.text,fontSize:14,fontFamily:'inherit',outline:'none',boxSizing:'border-box',
+                  transition:'border-color .2s'}}
+                onFocus={e=>e.target.style.borderColor=`${T.accent}55`}
+                onBlur={e=>e.target.style.borderColor=T.border}
+              />
+              <p style={{color:T.dim,fontSize:11,margin:'8px 0 0',lineHeight:1.5}}>
+                Obtén tu clave en{' '}
+                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer"
+                  style={{color:T.accent,textDecoration:'none'}}>platform.openai.com/api-keys</a>.
+                Se guarda solo en este dispositivo.
+              </p>
+            </div>
+
+            {effectiveKey&&!keyInput&&(
+              <div style={{display:'flex',alignItems:'center',gap:6,background:`#34d39911`,border:`1px solid #34d39933`,borderRadius:10,padding:'8px 12px',marginBottom:12}}>
+                <span style={{color:'#34d399',fontSize:13}}>✓</span>
+                <span style={{color:'#34d399',fontSize:12}}>Clave activa: {effectiveKey.slice(0,8)}···{effectiveKey.slice(-4)}</span>
+              </div>
+            )}
+
+            <div style={{display:'flex',gap:8,marginTop:4}}>
+              <button onClick={()=>setShowKeyPanel(false)}
+                style={{flex:1,background:'none',border:`1px solid ${T.border}`,borderRadius:12,padding:'10px',cursor:'pointer',color:T.muted,fontSize:13,fontFamily:'inherit'}}>
+                Cancelar
+              </button>
+              <button onClick={()=>{
+                  const k=(keyInput||'').trim();
+                  if(!k)return;
+                  try{localStorage.setItem('psicke_openai_key',k);}catch(e){}
+                  setSavedKey(k);
+                  setKeySaved(true);
+                  setTimeout(()=>{setKeySaved(false);setShowKeyPanel(false);},1200);
+                }}
+                disabled={!keyInput.trim()}
+                style={{flex:2,background:keyInput.trim()?`linear-gradient(135deg,${T.accent},${T.orange})`:'#333',
+                  border:'none',borderRadius:12,padding:'10px',cursor:keyInput.trim()?'pointer':'not-allowed',
+                  color:'#fff',fontSize:13,fontWeight:700,fontFamily:'inherit',
+                  boxShadow:keyInput.trim()?`0 3px 14px rgba(79,142,247,.35)`:'none',
+                  transition:'all .2s'}}>
+                {keySaved?'✓ Guardada':'Guardar clave'}
+              </button>
+            </div>
+
+            {savedKey&&(
+              <button onClick={()=>{
+                  try{localStorage.removeItem('psicke_openai_key');}catch(e){}
+                  setSavedKey('');setKeyInput('');
+                }}
+                style={{width:'100%',marginTop:10,background:'none',border:'none',cursor:'pointer',
+                  color:T.red||'#ff5069',fontSize:11,fontFamily:'inherit',padding:'4px',opacity:0.7}}>
+                Eliminar clave guardada
+              </button>
+            )}
+          </div>
         </div>
       )}
 
