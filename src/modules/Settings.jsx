@@ -39,7 +39,7 @@ const Settings = ({isMobile,data,setData,viewHint,onConsumeHint,onOpenPsicke,onI
       const { url, headers, body } = provider.buildRequest(
         [{ role: 'user', content: 'Di hola.' }], 'Responde brevemente.', k
       );
-      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ ...body, max_tokens: 10, maxOutputTokens: 10 }) });
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
       if (res.ok) {
         updProvider(provider.id, { testResult: 'ok', testMsg: `✅ ${provider.label} — clave válida y funcionando.`, saved: true });
         setProviderKey(provider.id, k);
