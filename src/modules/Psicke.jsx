@@ -131,7 +131,9 @@ const modFinanzas=`  FINANZAS:
   • Gasto/ingreso → SAVE_TRANSACTION (type: egreso|ingreso, amount, currency, category, description, date)
     Categorías egreso: Alimentación, Transporte, Salud, Educación, Entretenimiento, Hogar, Ropa, Servicios, Deuda, Otro
     Categorías ingreso: Salario, Freelance, Negocio, Inversión, Regalo, Otro
-  • Gasto fijo mensual → SAVE_BUDGET (title, amount, currency, dayOfMonth)`;
+  • Gasto fijo mensual → SAVE_BUDGET (title, amount, currency, dayOfMonth)
+  • Eliminar presupuesto fijo → DELETE_BUDGET (title)
+    → "cancela/elimina/borra el presupuesto de X" → DELETE_BUDGET(title:X)`;
 
 const modSalud=`  SALUD:
   • Medición corporal (peso/presión/glucosa/pasos/agua) → SAVE_HEALTH_METRIC (type, value, unit, date)
@@ -193,6 +195,9 @@ const modViajes=`  VIAJES:
 
 const modDesarrollo=`  DESARROLLO PERSONAL:
   • Curso/habilidad → SAVE_LEARNING (name, platform, category, progress, hoursSpent, hoursTotal)
+  • Actualizar curso existente → UPDATE_LEARNING (name, progress, status: active|done, hoursSpent)
+    → "Terminé el curso de X" → UPDATE_LEARNING(name:X, progress:100, status:done)
+    → "Avancé al 60% en X" → UPDATE_LEARNING(name:X, progress:60)
   • Reflexión periódica → SAVE_RETRO (period, date, wentWell, improve, learned)
   • Idea/insight/cita → SAVE_IDEA (content, tag, date)
     Tags: Insight, Cita, Aprendizaje, Pregunta, Idea, Reflexión, Otro
@@ -339,17 +344,63 @@ const buildPsickePrompt=(data,challenge,userMsg='')=>{
 
 HOY: ${t}
 
-FORMATO OBLIGATORIO DE RESPUESTA:
-Cada respuesta: razonamiento breve interno → respuesta visible (máx 2-3 oraciones) → JSON al final si aplica.
-Si hay múltiples acciones: emite VARIOS bloques \`\`\`json\`\`\` consecutivos, uno por acción.
-JAMÁS confirmes que guardaste algo sin incluir el bloque JSON — si no hay JSON, no se guarda nada.
+╔══════════════════════════════════════════════════╗
+║         REGLAS DE ORO — LEE PRIMERO              ║
+╚══════════════════════════════════════════════════╝
+
+REGLA 1 — PREGUNTA O GUARDA, NUNCA LOS DOS A LA VEZ:
+  Si faltan campos obligatorios → pregunta PRIMERO, NO emitas JSON.
+  Si tienes todos los campos → guarda directo, NO hagas preguntas innecesarias.
+  JAMÁS emitas JSON y hagas una pregunta en el mismo mensaje.
+  ✗ MAL: "Para registrar necesito saber X... ✅ Guardado"
+  ✓ BIEN: "Para registrar necesito saber X, Y y Z." (sin JSON)
+  ✓ BIEN: (respuesta corta confirmando) + JSON (sin preguntas)
+
+REGLA 2 — MENSAJES MULTI-ÁREA:
+  Si el mensaje toca N áreas → procesa CADA UNA independientemente en orden.
+  NUNCA omitas un área por complejidad del mensaje.
+  Ejemplo: "Fui al gym y gasté 200 en comida" → SAVE_WORKOUT + SAVE_TRANSACTION, ambas.
+
+REGLA 3 — SEÑALES IMPLÍCITAS (actúa aunque el usuario no diga "guarda esto"):
+  "en X meses/semanas/días" → calcular fecha exacta desde HOY y crear SAVE_FOLLOWUP o SAVE_TASK
+  "bajé/subí Xkg" → pedir peso actual si no está en historial, usar historial si existe
+  "el libro que estaba leyendo" → buscar en libros con status:reading y actualizarlo
+  "el curso que empecé" → buscar en aprendizajes activos y actualizarlo
+  "ya terminé la tarea de X" → UPDATE_TASK_STATUS aunque la tarea no exista (crearla como done)
+  "conocí a X" → SAVE_PERSON + SAVE_INTERACTION siempre, los dos juntos
+  "quedamos en X con Y" → SAVE_FOLLOWUP con personName y fecha si se menciona
+  "anticipo/depósito/pago de $X" → SAVE_TRANSACTION aunque sea mencionado de pasada
+  "fue una noche horrible/pésima/terrible" + horas de sueño → SAVE_SLEEP_LOG + sugerir SAVE_JOURNAL
+  "calificaría la semana con X/10" → SAVE_RETRO con esa calificación como base
+
+REGLA 4 — MÓDULO CORRECTO, NUNCA EL GENÉRICO POR COMODIDAD:
+  SAVE_NOTE es el último recurso. Antes de usarlo, verifica si aplica un módulo específico.
+  "bajé Xkg / me pesé" → SAVE_HEALTH_METRIC(type:peso), NO SAVE_NOTE
+  "dormí X horas" → SAVE_SLEEP_LOG, NO SAVE_NOTE
+  "fui al dentista/médico" → SAVE_HOME_CONTACT + SAVE_TRANSACTION, NO SAVE_NOTE
+  "tuve un sueño raro" → SAVE_DREAM, NO SAVE_SLEEP_LOG
+  "gasté X en Y" → SAVE_TRANSACTION, NO SAVE_NOTE
+
+REGLA 5 — BORRADO Y ELIMINACIÓN:
+  El sistema NO puede eliminar registros automáticamente.
+  Si el usuario pide cancelar/eliminar/borrar algo → explicar que debe hacerlo manualmente
+  desde el módulo correspondiente en la app, y ofrecer alternativas si aplica.
+  Ejemplo alternativa para presupuesto cancelado: "No puedo eliminarlo automáticamente.
+  Puede borrarlo desde Finanzas → Presupuesto. ¿Quiere que lo anote como recordatorio?"
+
+REGLA 6 — JSON SIN MENTIRAS:
+  JAMÁS confirmes que guardaste algo sin incluir el bloque JSON.
+  Si no hay JSON en la respuesta, el dato NO se guarda. Punto.
 
 ═══ DATOS BASE ═══
 Áreas: ${areaNames||'Ninguna'}
 Mapa de áreas: ${areaMap||'sin áreas'}
-Objetivos activos:\n${objectives||'(sin objetivos)'}
-Tareas pendientes (${tasksPending.length}):\n${tasksSummary||'(sin tareas)'}
-Notas recientes:\n${notesSummary||'(sin notas)'}
+Objetivos activos:
+${objectives||'(sin objetivos)'}
+Tareas pendientes (${tasksPending.length}):
+${tasksSummary||'(sin tareas)'}
+Notas recientes:
+${notesSummary||'(sin notas)'}
 Tags: ${allTags} · Inbox sin procesar: ${inboxPending} · Hábitos: ${habitNames||'(ninguno)'}
 
 ${dataSections.join('\n\n')}
@@ -357,27 +408,32 @@ ${dataSections.join('\n\n')}
 ═══ PROTOCOLO DE CLASIFICACIÓN ═══
 PASO I — TIPO:
   A) Saludo/conversación casual → responder brevemente. NUNCA guardar.
-  B) Consulta → responder con datos. NUNCA guardar.
+  B) Consulta → responder con datos concretos del historial. NUNCA guardar ni crear registros nuevos.
   C) Captura → continuar a PASO II
 
-PASO II — ÁREA: ¿A qué área pertenece? Áreas: ${areaNames||'ninguna'}
+PASO II — ÁREA: ¿A cuántas áreas toca este mensaje?
+  Si toca más de una → anota todas y procesa cada una (REGLA 2).
 
 PASO III — MÓDULO:
 ${moduleDefs.join('\n')}
 
 PASO IV — CAMPOS:
-  Regla absoluta: UN REGISTRO INCOMPLETO ES UN FRACASO.
-  Si faltan campos clave, pregúntalos TODOS juntos en un mensaje.
-  Montos: siempre amount + currency. Fechas: YYYY-MM-DD. Horas: HH:MM.
+  ¿Tengo TODOS los campos obligatorios (✦)?
+  → SÍ: emitir JSON directo (REGLA 1)
+  → NO: preguntar TODO lo que falta en un solo mensaje, sin emitir JSON (REGLA 1)
+  Montos: siempre amount + currency. Fechas: YYYY-MM-DD desde HOY (${t}). Horas: HH:MM.
+  Fechas relativas: "en 3 meses" = ${new Date(new Date().setMonth(new Date().getMonth()+3)).toISOString().slice(0,10)}
+                   "la próxima semana" = ${new Date(new Date().setDate(new Date().getDate()+7)).toISOString().slice(0,10)}
 
 PASO V — RESPONDER:
-  [Si faltan campos: pregunta todo lo que falta agrupado]
-  [Si tienes todo: confirma brevemente y emite el JSON]
+  [Si faltan campos: pregunta agrupado, sin JSON]
+  [Si tienes todo: confirma en 1 oración + JSON]
+  [Si mensaje emocional sin datos concretos: responde empático, ofrece diario, no fuerces capturas]
 
 ═══ FORMATOS DE GUARDADO ═══
 ${examples.join('\n')}
 
-⚠️ REGLA FINAL: Si el usuario menciona algo que debe guardarse, DEBES incluir el JSON. Sin JSON = dato perdido = mentirle al usuario.
+⚠️ REGLA FINAL: Si el usuario menciona algo que debe guardarse, incluye el JSON. Sin JSON = dato perdido.
 
 ${challengeBlock}`;
 };
@@ -1168,6 +1224,68 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           const upd=[e,...(updData.journalEntries||[])];
           updData={...updData,journalEntries:upd};save('journalEntries',upd);
           return `📓 Entrada de diario guardada${e.mood?' · '+e.mood:''}`;
+
+        // ── UPDATE_LEARNING ── (marcar curso como terminado o actualizar progreso)
+        }else if(action.action==='UPDATE_LEARNING'&&action.data.name){
+          const needle=(action.data.name||'').toLowerCase();
+          const idx=(updData.learnings||[]).findIndex(l=>l.name.toLowerCase().includes(needle)||needle.includes(l.name.toLowerCase()));
+          if(idx>=0){
+            const upd=(updData.learnings||[]).map((l,i)=>i===idx?{...l,
+              progress:action.data.progress!==undefined?Number(action.data.progress):l.progress,
+              status:action.data.status||l.status,
+              hoursSpent:action.data.hoursSpent!==undefined?Number(action.data.hoursSpent):l.hoursSpent,
+            }:l);
+            updData={...updData,learnings:upd};save('learnings',upd);
+            const l=upd[idx];
+            return `📖 Aprendizaje actualizado: ${l.name} · ${l.progress}%${l.status==='done'?' · ✅ completado':''}`;
+          }
+          return `⚠️ Aprendizaje no encontrado: ${action.data.name}`;
+
+        // ── DELETE_BUDGET ──
+        }else if(action.action==='DELETE_BUDGET'&&action.data.title){
+          const needle=(action.data.title||'').toLowerCase();
+          const before=(updData.budget||[]).length;
+          const upd=(updData.budget||[]).filter(b=>!b.title.toLowerCase().includes(needle));
+          if(upd.length<before){
+            updData={...updData,budget:upd};save('budget',upd);
+            return `🗑️ Presupuesto eliminado: ${action.data.title}`;
+          }
+          return `⚠️ Presupuesto no encontrado: ${action.data.title}`;
+
+        // ── DELETE_HABIT ──
+        }else if(action.action==='DELETE_HABIT'&&action.data.name){
+          const needle=(action.data.name||'').toLowerCase();
+          const before=(updData.habits||[]).length;
+          const upd=(updData.habits||[]).filter(h=>!h.name.toLowerCase().includes(needle));
+          if(upd.length<before){
+            updData={...updData,habits:upd};save('habits',upd);
+            return `🗑️ Hábito eliminado: ${action.data.name}`;
+          }
+          return `⚠️ Hábito no encontrado: ${action.data.name}`;
+
+        // ── DELETE_TASK ──
+        }else if(action.action==='DELETE_TASK'&&action.data.title){
+          const needle=(action.data.title||'').toLowerCase();
+          const before=(updData.tasks||[]).length;
+          const upd=(updData.tasks||[]).filter(t=>!t.title.toLowerCase().includes(needle));
+          if(upd.length<before){
+            updData={...updData,tasks:upd};save('tasks',upd);
+            return `🗑️ Tarea eliminada: ${action.data.title}`;
+          }
+          return `⚠️ Tarea no encontrada: ${action.data.title}`;
+
+        // ── DELETE_TRANSACTION ──
+        }else if(action.action==='DELETE_TRANSACTION'&&action.data.id){
+          const upd=(updData.transactions||[]).filter(t=>t.id!==action.data.id);
+          updData={...updData,transactions:upd};save('transactions',upd);
+          return `🗑️ Transacción eliminada`;
+
+        // ── DELETE_PERSON ──
+        }else if(action.action==='DELETE_PERSON'&&action.data.name){
+          const needle=(action.data.name||'').toLowerCase();
+          const upd=(updData.people||[]).filter(p=>!p.name.toLowerCase().includes(needle));
+          updData={...updData,people:upd};save('people',upd);
+          return `🗑️ Persona eliminada: ${action.data.name}`;
         }
         return null;
       };
