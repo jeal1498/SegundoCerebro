@@ -6,6 +6,7 @@ import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 import { callWithFallback, hasAnyKey } from '../config/aiProviders.js';
+import { scheduleNotification, parseReminderTime } from '../utils/notifications.js';
 
 const OB_AREAS = [
   {id:'salud',      label:'Salud',        emoji:'💪'},
@@ -469,6 +470,15 @@ PASO V — RESPONDER:
 ${examples.join('\n')}
 
 ⚠️ REGLA FINAL: Si el usuario menciona algo que debe guardarse, incluye el JSON. Sin JSON = dato perdido.
+
+═══ RECORDATORIOS CON NOTIFICACIÓN PUSH ═══
+Usa SAVE_REMINDER cuando el usuario pida que le recuerdes algo a una hora/fecha específica.
+Campos: title✦, body, timeStr (texto legible como "mañana a las 8am"), fireAt (timestamp ms si lo calculas).
+Ejemplo:
+```json
+{"action":"SAVE_REMINDER","data":{"title":"Pagar seguro del coche","body":"Vence hoy","timeStr":"mañana a las 9am"}}
+```
+NUNCA inventes la hora si el usuario no la dice — en ese caso omite timeStr y fireAt.
 
 ${challengeBlock}`;
 };
@@ -1213,6 +1223,39 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
             return `📖 Aprendizaje actualizado: ${l.name} · ${l.progress}%${l.status==='done'?' · ✅ completado':''}`;
           }
           return `⚠️ Aprendizaje no encontrado: ${action.data.name}`;
+
+        // ── SAVE_REMINDER ──
+        }else if(action.action==='SAVE_REMINDER'&&action.data.title){
+          const r={id:uid(),title:action.data.title,
+            body:action.data.body||'',
+            fireAt:action.data.fireAt||null,
+            timeStr:action.data.timeStr||'',
+            done:false,createdAt:td};
+          // Guardar en data.reminders
+          const upd=[r,...(updData.reminders||[])];
+          updData={...updData,reminders:upd};save('reminders',upd);
+          // Disparar push notification si hay fireAt
+          if(r.fireAt){
+            scheduleNotification({
+              id:r.id,
+              title:'⏰ '+r.title,
+              body:r.body||'Segundo Cerebro',
+              fireAt:r.fireAt,
+              url:'/'
+            }).catch(()=>{});
+          } else if(r.timeStr){
+            const parsed=parseReminderTime(r.timeStr);
+            if(parsed?.fireAt){
+              scheduleNotification({
+                id:r.id,
+                title:'⏰ '+r.title,
+                body:r.body||'Segundo Cerebro',
+                fireAt:parsed.fireAt,
+                url:'/'
+              }).catch(()=>{});
+            }
+          }
+          return `⏰ Recordatorio: ${r.title}${r.timeStr?' · '+r.timeStr:''}`;
 
         // ── DELETE_BUDGET ──
         }else if(action.action==='DELETE_BUDGET'&&action.data.title){
