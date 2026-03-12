@@ -17,7 +17,7 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GROQ_MODELS = ['deepseek-r1-distill-llama-70b','llama-3.3-70b-versatile'];
+const GROQ_MODELS = ['deepseek-r1-distill-qwen-32b','llama-3.3-70b-versatile'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
