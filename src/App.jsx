@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { T, getIsDark, setIsDark } from './theme/tokens.js';
+import { hasAnyKey, getActiveProvider, setProviderKey, migrateLegacyKeys } from './config/aiProviders.js';
 import { AppLoader } from './modules/AppLoader.jsx';
 import ErrorBoundary from './modules/ErrorBoundary.jsx';
 import { NAV_SECTIONS, MOBILE_NAV } from './modules/navConfig.js';
@@ -52,8 +53,8 @@ function App() {
   const [psickeOpen, setPsickeOpen]   = useState(false);
   const [welcomePsicke, setWelcomePsicke] = useState(null);
   const [showSearch, setShowSearch]   = useState(false);
-  const [apiKey, setApiKey]           = useState(() => { try { return localStorage.getItem('sb_gemini_key') || ''; } catch { return ''; } });
-  const [showWelcome, setShowWelcome] = useState(() => { try { return !localStorage.getItem('sb_gemini_key'); } catch { return true; } });
+  const [hasKey, setHasKey]           = useState(() => { migrateLegacyKeys(); return hasAnyKey(); });
+  const [showWelcome, setShowWelcome] = useState(() => !hasAnyKey());
   const [welcomeKeyInput, setWelcomeKeyInput] = useState('');
   const [showCapture, setShowCapture]     = useState(false);
   const [captureText, setCaptureText]     = useState('');
@@ -82,6 +83,13 @@ function App() {
     };
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Sync hasKey when Settings saves/clears a provider key
+  useEffect(() => {
+    const handler = () => setHasKey(hasAnyKey());
+    window.addEventListener('ai-key-changed', handler);
+    return () => window.removeEventListener('ai-key-changed', handler);
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -276,7 +284,7 @@ function App() {
       case 'nutricion':    return <Nutricion {...props} onBack={backToDashboard} />;
       case 'sueno':        return <Sueno {...props} onBack={backToDashboard} />;
       case 'settings':     return (
-        <Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile} data={data} setData={setData}
+        <Settings isMobile={isMobile} data={data} setData={setData}
           viewHint={viewHint} onConsumeHint={consumeHint}
           onOpenPsicke={() => setPsickeOpen(true)}
           onInstall={(!isInstalled && installPrompt) ? triggerInstall : null}
@@ -351,8 +359,8 @@ function App() {
               🔍 <span>Búsqueda global</span>
             </button>
             <div style={{ display:'flex',alignItems:'center',gap:6,cursor:'pointer' }} onClick={() => navTo('settings')}>
-              <span style={{ width:7,height:7,borderRadius:'50%',background:apiKey?T.green:T.red,display:'inline-block',flexShrink:0 }}/>
-              <span style={{ fontSize:11,color:apiKey?T.green:T.red,fontWeight:600 }}>{apiKey ? 'Gemini activo' : 'Sin API Key'}</span>
+              <span style={{ width:7,height:7,borderRadius:'50%',background:hasKey?T.green:T.red,display:'inline-block',flexShrink:0 }}/>
+              <span style={{ fontSize:11,color:hasKey?T.green:T.red,fontWeight:600 }}>{hasKey ? `${getActiveProvider()?.name||'IA'} activo` : 'Sin API Key'}</span>
             </div>
           </div>
         </div>
@@ -369,9 +377,9 @@ function App() {
           <div style={{ display:'flex',gap:8,alignItems:'center' }}>
             {inboxCount > 0 && <button onClick={() => navTo('inbox')} style={{ background:T.red,color:'#fff',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:12,border:'none',cursor:'pointer',fontFamily:'inherit' }}>{inboxCount} inbox</button>}
             <button onClick={() => setShowSearch(true)} style={{ background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:T.muted,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4 }}>🔍</button>
-            <button onClick={() => navTo('settings')} style={{ background:'none',border:`1px solid ${apiKey?T.green:T.red}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:apiKey?T.green:T.red,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4 }}>
-              <span style={{ width:6,height:6,borderRadius:'50%',background:apiKey?T.green:T.red,display:'inline-block' }}/>
-              {apiKey ? 'IA ON' : 'IA OFF'}
+            <button onClick={() => navTo('settings')} style={{ background:'none',border:`1px solid ${hasKey?T.green:T.red}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:hasKey?T.green:T.red,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4 }}>
+              <span style={{ width:6,height:6,borderRadius:'50%',background:hasKey?T.green:T.red,display:'inline-block' }}/>
+              {hasKey ? 'IA ON' : 'IA OFF'}
             </button>
           </div>
         </div>
@@ -412,7 +420,7 @@ function App() {
 
       {/* ── Psicke AI ── */}
       <Suspense fallback={null}>
-        <Psicke apiKey={apiKey} onGoSettings={() => navTo('settings')} data={data} setData={setData}
+        <Psicke onGoSettings={() => navTo('settings')} data={data} setData={setData}
           openFromNav={psickeOpen} onNavClose={() => setPsickeOpen(false)}
           welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}/>
       </Suspense>
@@ -535,8 +543,8 @@ function App() {
                 onClick={() => {
                   const key = welcomeKeyInput.trim();
                   if (!key) return;
-                  try { localStorage.setItem('sb_gemini_key',''); localStorage.setItem('sb_gemini_key', key); } catch {}
-                  setApiKey(key);
+                  setProviderKey('gemini', key);
+                  setHasKey(true);
                   setShowWelcome(false);
                 }}
                 disabled={welcomeKeyInput.trim().length < 10}
@@ -555,7 +563,6 @@ function App() {
               {/* Skip */}
               <button
                 onClick={() => {
-                  try { localStorage.setItem('sb_gemini_key', ''); } catch {}
                   setShowWelcome(false);
                 }}
                 style={{ width:'100%',background:'none',border:'none',color:T.dim,fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,cursor:'pointer',padding:'6px 0' }}>
