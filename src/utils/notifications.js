@@ -147,31 +147,39 @@ export async function checkOnFocus() {
 
 // ── Parser de tiempo en texto ─────────────────────────────
 export function parseReminderTime(str) {
-  const s = str.toLowerCase().trim();
+  // Eliminar patrones de fecha dd/mm/yyyy o yyyy-mm-dd para no confundir con horas
+  const cleaned = str.replace(/\d{1,2}\/\d{1,2}\/\d{2,4}/g, '').replace(/\d{4}-\d{2}-\d{2}/g, '').trim();
+  const s = cleaned.toLowerCase();
   const now = new Date();
 
-  // "hoy a las X:XX am/pm"
-  const todayMatch = s.match(/hoy.*?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+  // Detectar "tarde" o "noche" como indicador de PM
+  const esTarde = /tarde|noche|pm/.test(s);
+  const esManana2 = /ma[ñn]ana|morning|am/.test(s) && !esTarde;
+
+  // "hoy a las X:XX am/pm/tarde"
+  const todayMatch = s.match(/hoy.*?(?:las?\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
   if (todayMatch) {
     const d = new Date();
     let h = parseInt(todayMatch[1]);
     const m = parseInt(todayMatch[2] || '0');
-    if (todayMatch[3] === 'pm' && h < 12) h += 12;
-    if (todayMatch[3] === 'am' && h === 12) h = 0;
+    const meridiem = todayMatch[3] || (esTarde ? 'pm' : '');
+    if (meridiem === 'pm' && h < 12) h += 12;
+    if (meridiem === 'am' && h === 12) h = 0;
     d.setHours(h, m, 0, 0);
-    if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1); // si ya pasó, mañana
+    if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1);
     return { fireAt: d.getTime() };
   }
 
   // "mañana a las X:XX am/pm"
-  const tmrMatch = s.match(/ma[ñn]ana.*?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+  const tmrMatch = s.match(/ma[ñn]ana.*?(?:las?\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
   if (tmrMatch) {
     const d = new Date();
     d.setDate(d.getDate() + 1);
     let h = parseInt(tmrMatch[1]);
     const m = parseInt(tmrMatch[2] || '0');
-    if (tmrMatch[3] === 'pm' && h < 12) h += 12;
-    if (tmrMatch[3] === 'am' && h === 12) h = 0;
+    const meridiem = tmrMatch[3] || (esTarde ? 'pm' : '');
+    if (meridiem === 'pm' && h < 12) h += 12;
+    if (meridiem === 'am' && h === 12) h = 0;
     d.setHours(h, m, 0, 0);
     return { fireAt: d.getTime() };
   }
