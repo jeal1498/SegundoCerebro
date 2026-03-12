@@ -21,12 +21,19 @@ export const PROVIDERS = [
         'Content-Type': 'application/json',
         'x-api-key': key,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31',
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 800,
-        system: systemPrompt,
+        system: [
+          {
+            type: 'text',
+            text: systemPrompt,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
         messages: messages
           .filter(m => m.role !== 'system')
           .map(m => ({
