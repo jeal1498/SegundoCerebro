@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
 import { T, getIsDark, setIsDark } from '../theme/tokens.js';
 import { save } from '../storage/index.js';
+import { connectGoogleCalendar, clearToken, isConnected as isGCalConnected } from '../utils/googleCalendar.js';
 import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
@@ -59,6 +60,7 @@ const Settings = ({isMobile,data,setData,viewHint,onConsumeHint,onOpenPsicke,onI
   const [sTab,setSTab]=useState('ia');
   const [reviewStep,setReviewStep]=useState(0);
   const [notifEnabled,setNotifEnabled]=useState(()=>{try{return localStorage.getItem('sb_notifs')==='true';}catch{return false;}});
+  const [gcalConnected,setGcalConnected]=useState(()=>isGCalConnected());
   const [notifSettings,setNotifSettings]=useState(()=>{
     try{return JSON.parse(localStorage.getItem('sb_notif_cfg')||'{}');}catch{return {};}
   });
@@ -118,6 +120,20 @@ const Settings = ({isMobile,data,setData,viewHint,onConsumeHint,onOpenPsicke,onI
     } else {
       toast.warn('Notificaciones denegadas','Habilítalas en la configuración del navegador');
     }
+  };
+  const connectGCal=async()=>{
+    try{
+      await connectGoogleCalendar();
+      setGcalConnected(true);
+      toast.success('Google Calendar conectado ✓');
+    }catch(e){
+      toast.error('Error: '+e.message);
+    }
+  };
+  const disconnectGCal=()=>{
+    clearToken();
+    setGcalConnected(false);
+    toast.info('Google Calendar desconectado');
   };
   const toggleNotif=(key)=>{
     const updated={...notifSettings,[key]:!notifSettings[key]};
@@ -437,6 +453,28 @@ const Settings = ({isMobile,data,setData,viewHint,onConsumeHint,onOpenPsicke,onI
                </div>
             }
           </Card>
+          <Card style={{marginTop:12}}>
+            <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:6}}>📅 Google Calendar</div>
+            <div style={{color:T.muted,fontSize:12,marginBottom:14,lineHeight:1.6}}>Los recordatorios de Psicke se agregan a tu calendario. Recibe notificaciones aunque la app esté cerrada.</div>
+            {!gcalConnected
+              ?<button onClick={connectGCal} style={{width:'100%',padding:'11px',borderRadius:10,border:'1px solid #4285F4',background:'#4285F415',color:'#4285F4',cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit'}}>
+                 🔗 Conectar Google Calendar
+               </button>
+              :<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:`${T.green}12`,border:`1px solid ${T.green}30`,borderRadius:10}}>
+                 <div style={{display:'flex',alignItems:'center',gap:10}}>
+                   <span style={{fontSize:18}}>✅</span>
+                   <div>
+                     <div style={{fontSize:13,fontWeight:600,color:T.green}}>Calendar conectado</div>
+                     <div style={{fontSize:11,color:T.muted}}>Psicke crea eventos automáticamente</div>
+                   </div>
+                 </div>
+                 <button onClick={disconnectGCal} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',color:T.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>
+                   Desconectar
+                 </button>
+               </div>
+            }
+          </Card>
+
           {notifEnabled&&(
             <Card>
               {NOTIF_OPTIONS.map((opt,i)=>(

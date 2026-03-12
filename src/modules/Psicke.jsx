@@ -7,6 +7,7 @@ import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../c
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 import { callWithFallback, hasAnyKey } from '../config/aiProviders.js';
 import { scheduleNotification, parseReminderTime } from '../utils/notifications.js';
+import { createCalendarEvent, isConnected as isGCalConnected } from '../utils/googleCalendar.js';
 
 const OB_AREAS = [
   {id:'salud',      label:'Salud',        emoji:'💪'},
@@ -1236,28 +1237,29 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
           // Guardar en data.reminders
           const upd=[r,...(updData.reminders||[])];
           updData={...updData,reminders:upd};save('reminders',upd);
-          // Disparar push notification si hay fireAt
-          if(r.fireAt){
-            scheduleNotification({
-              id:r.id,
-              title:'⏰ '+r.title,
-              body:r.body||'Segundo Cerebro',
-              fireAt:r.fireAt,
-              url:'/'
-            }).catch(()=>{});
-          } else if(r.timeStr){
+          // Calcular fireAt desde timeStr si no viene directo
+          let resolvedFireAt=r.fireAt;
+          if(!resolvedFireAt&&r.timeStr){
             const parsed=parseReminderTime(r.timeStr);
-            if(parsed?.fireAt){
-              scheduleNotification({
-                id:r.id,
-                title:'⏰ '+r.title,
-                body:r.body||'Segundo Cerebro',
-                fireAt:parsed.fireAt,
-                url:'/'
-              }).catch(()=>{});
+            if(parsed?.fireAt) resolvedFireAt=parsed.fireAt;
+          }
+          // Preferir Google Calendar si está conectado
+          if(resolvedFireAt){
+            if(isGCalConnected()){
+              createCalendarEvent({
+                title:r.title,
+                body:r.body||'',
+                fireAt:resolvedFireAt,
+              }).catch(()=>{
+                // Fallback a push local si falla Calendar
+                scheduleNotification({id:r.id,title:'⏰ '+r.title,body:r.body||'Segundo Cerebro',fireAt:resolvedFireAt,url:'/'}).catch(()=>{});
+              });
+            } else {
+              scheduleNotification({id:r.id,title:'⏰ '+r.title,body:r.body||'Segundo Cerebro',fireAt:resolvedFireAt,url:'/'}).catch(()=>{});
             }
           }
-          return `⏰ Recordatorio: ${r.title}${r.timeStr?' · '+r.timeStr:''}`;
+          const gcalNote=isGCalConnected()?' · 📅 Agregado a Google Calendar':'';
+          return `⏰ Recordatorio: ${r.title}${r.timeStr?' · '+r.timeStr:''}${gcalNote}`;
 
         // ── DELETE_BUDGET ──
         }else if(action.action==='DELETE_BUDGET'&&action.data.title){
