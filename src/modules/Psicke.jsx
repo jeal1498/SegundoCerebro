@@ -1683,7 +1683,7 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
               </div>
             </div>
             <p style={{color:T.muted,fontSize:13,lineHeight:1.6,marginBottom:20}}>
-              Ve a <strong style={{color:T.text}}>Ajustes → IA</strong> y agrega la key de cualquier proveedor. Gemini tiene tier gratuito.
+              Ve a <strong style={{color:T.text}}>Ajustes → IA</strong> y agrega tu API Key de Anthropic (Claude) para activar Psicke.
             </p>
             <div style={{display:'flex',gap:8}}>
               <button onClick={()=>setShowKeyPanel(false)}

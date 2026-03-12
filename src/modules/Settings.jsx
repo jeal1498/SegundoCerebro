@@ -305,7 +305,7 @@ const Settings = ({isMobile,data,setData,viewHint,onConsumeHint,onOpenPsicke,onI
           <Card>
             <div style={{color:T.muted,fontSize:12,lineHeight:1.7}}>
               <div style={{color:T.text,fontWeight:600,fontSize:13,marginBottom:8}}>💡 Recomendación de inicio</div>
-              Configura primero <strong style={{color:T.text}}>Gemini</strong> — tier gratuito generoso, sin tarjeta. Si se acaba la cuota diaria, Psicke usa el siguiente proveedor automáticamente.
+              Configura primero <strong style={{color:T.text}}>Anthropic (Claude)</strong> — es tu proveedor principal. Si se agota la cuota o falla, Psicke usa Gemini o Groq automáticamente.
             </div>
           </Card>
         </>
