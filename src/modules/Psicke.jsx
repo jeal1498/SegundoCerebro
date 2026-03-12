@@ -6,6 +6,7 @@ import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
 import { callWithFallback, hasAnyKey } from '../config/aiProviders.js';
+import { toast } from './Toast.jsx';
 import { scheduleNotification, parseReminderTime } from '../utils/notifications.js';
 import { createCalendarEvent, isConnected as isGCalConnected } from '../utils/googleCalendar.js';
 
@@ -1250,16 +1251,19 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
                 title:r.title,
                 body:r.body||'',
                 fireAt:resolvedFireAt,
-              }).catch(()=>{
-                // Fallback a push local si falla Calendar
+              }).then(()=>{
+                toast.success('📅 Evento creado en Google Calendar');
+              }).catch((err)=>{
+                console.error('[GCal]',err);
+                toast.error('Google Calendar falló: '+err.message);
+                // Fallback a push local
                 scheduleNotification({id:r.id,title:'⏰ '+r.title,body:r.body||'Segundo Cerebro',fireAt:resolvedFireAt,url:'/'}).catch(()=>{});
               });
             } else {
               scheduleNotification({id:r.id,title:'⏰ '+r.title,body:r.body||'Segundo Cerebro',fireAt:resolvedFireAt,url:'/'}).catch(()=>{});
             }
           }
-          const gcalNote=isGCalConnected()?' · 📅 Agregado a Google Calendar':'';
-          return `⏰ Recordatorio: ${r.title}${r.timeStr?' · '+r.timeStr:''}${gcalNote}`;
+          return `⏰ Recordatorio: ${r.title}${r.timeStr?' · '+r.timeStr:''}`;
 
         // ── DELETE_BUDGET ──
         }else if(action.action==='DELETE_BUDGET'&&action.data.title){
