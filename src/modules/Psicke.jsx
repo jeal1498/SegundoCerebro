@@ -17,890 +17,371 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GROQ_MODELS = ['qwen/qwen3-32b','llama-3.3-70b-versatile'];
+const GROQ_MODELS = ['llama-3.3-70b-versatile'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
-const buildPsickePrompt=(data,challenge)=>{
-  const t=today();
-  const notesSummary=(data.notes||[]).slice(0,4).map(n=>{
-    let s=`• ${n.title.slice(0,25)}`;
-    if(n.amount)s+=` $${n.amount}`;
-    if(n.tags?.length)s+=` [${n.tags.slice(0,2).join(',')}]`;
-    return s;
+// ── Intent detection ──
+const detectIntent=(msg)=>{
+  const m=msg.toLowerCase();
+  const i=new Set();
+  if(/(gast|ingres|dinero|pag[oué]|transacc|presupuest|saldo|deuda|factura|precio|costo|cobr|efectivo|billete|tarjeta)/i.test(m)) i.add('finanzas');
+  if(/(salud|peso|ejerc|gym|corr|caminé|caminar|medicament|pastilla|doctor|médico|workout|calorí|proteín|agua|sueño|dormí|dormir|horas de|vacuna(?! mascota)|suplemento)/i.test(m)) i.add('salud');
+  if(/(coche|carro|auto|km|kilómetro|gasolina|aceite|llanta|freno|mecánico|taller|afinaci|servicio del)/i.test(m)) i.add('coche');
+  if(/(casa|hogar|depa|departamento|plomero|electricist|limpieza|mantenimiento del hogar|documento|seguro del hogar|garantía|contrato)/i.test(m)) i.add('hogar');
+  if(/(amig|famili|conocí|llamé|mensaj[eé]|reunión con|cita con|cumpleaños|relaci|persona nueva|conoce)/i.test(m)) i.add('relaciones');
+  if(/(proyecto|app|web|código|desarrollar|lanzar|startup|side project|repo|deploy)/i.test(m)) i.add('proyectos');
+  if(/(dormí|soñé|cama|desperté|sueño raro|pesadilla|sueño lúcido|registro de sueño)/i.test(m)) i.add('sueno');
+  if(/(compra|supermercado|súper|tienda|lista de|necesito comprar)/i.test(m)) i.add('compras');
+  if(/(película|serie|ver |netflix|prime|disney|hbo|anime|episodio|temporada|contenido)/i.test(m)) i.add('entretenimiento');
+  if(/(mascota|perro|gato|vet|veterinari|vacuna del|vacuna a)/i.test(m)) i.add('mascotas');
+  if(/(viaj|destino|vuelo|hotel|trip|vacacione|airbnb)/i.test(m)) i.add('viajes');
+  if(/(libro|leer|leyendo|lectura|autor|novela|ensayo)/i.test(m)) i.add('libros');
+  if(/(aprend|curso|estudi|clase|apunte|habilidad|certif)/i.test(m)) i.add('desarrollo');
+  if(/(idea|insight|reflexi|retro|diario|fue un día|hoy fue|semana fue)/i.test(m)) i.add('desarrollo');
+  if(/(farmacia|botiquín|medicin|pastilla|suplemento|ibuprofeno|paracetamol)/i.test(m)) i.add('farmacia');
+  if(/(hábito|habit|racha)/i.test(m)) i.add('habitos');
+  if(/(receta|cocinar|ingrediente|platillo|cocin)/i.test(m)) i.add('nutricion');
+  if(/(tarea|pendiente|hacer|recordatorio|deadline|completé la tarea)/i.test(m)) i.add('tareas');
+  if(/(nota|apunte|guarda|recordar|inbox|captura)/i.test(m)) i.add('notas');
+  return i;
+};
+
+// ── Modular context builders ──
+const ctxFinanzas=(data,t)=>{
+  const tx=(data.transactions||[]).slice(0,5).map(x=>`• ${x.type==='ingreso'?'↑':'↓'} $${x.amount} ${x.currency||'MXN'} — ${x.category||''} ${x.description||''}`).join('\n');
+  const bud=(data.budget||[]).map(b=>`• ${b.title}: $${b.amount} ${b.currency||'MXN'}/mes día ${b.dayOfMonth}`).join('\n');
+  return `── FINANZAS ──\nÚltimas transacciones:\n${tx||'(sin transacciones)'}\nPresupuesto fijo:\n${bud||'(sin presupuesto)'}`;
+};
+const ctxSalud=(data,t)=>{
+  const met=(data.healthMetrics||[]).slice(0,3).map(m=>`• ${m.type}: ${m.value} ${m.unit||''} (${m.date})`).join('\n');
+  const med=(data.medications||[]).map(m=>`• ${m.name} ${m.dose||''} ${m.unit||''} — ${m.frequency||''}`).join('\n');
+  const wk=(data.workouts||[]).slice(0,3).map(w=>`• ${w.type} ${w.duration||''}min ${w.date}`).join('\n');
+  const hg=Object.entries(data.healthGoals||{}).map(([k,v])=>`${k}: ${v}`).join(', ');
+  return `── SALUD ──\nMétricas: ${met||'(sin métricas)'}\nMetas: ${hg||'(por defecto)'}\nMedicamentos: ${med||'(ninguno)'}\nActividad: ${wk||'(sin registros)'}`;
+};
+const ctxCoche=(data)=>{
+  const ci=data.carInfo||{};
+  const inf=ci.brand?`${ci.brand} ${ci.model||''} ${ci.year||''} · ${ci.plate||''} · ${ci.km||'?'} km`:'Sin datos del coche';
+  const mt=(data.carMaintenances||[]).slice(0,3).map(m=>`• ${m.name} — último: ${m.lastDone||'nunca'}, cada ${m.frequencyDays||'?'}d/${m.frequencyKm||'?'}km`).join('\n');
+  const gx=(data.carExpenses||[]).slice(0,3).map(e=>`• ${e.concept}: $${e.amount} (${e.date||''})`).join('\n');
+  return `── COCHE ──\nDatos: ${inf}\nMantenimientos:\n${mt||'(sin mantenimientos)'}\nGastos recientes:\n${gx||'(sin gastos)'}`;
+};
+const ctxHogar=(data)=>{
+  const mt=(data.maintenances||[]).slice(0,3).map(m=>`• ${m.name} — cada ${m.frequencyDays}d, último: ${m.lastDone||'nunca'}`).join('\n');
+  const dc=(data.homeDocs||[]).slice(0,3).map(d=>`• ${d.name} vence: ${d.expiryDate||'—'}`).join('\n');
+  return `── HOGAR ──\nMantenimientos:\n${mt||'(sin mantenimientos)'}\nDocumentos:\n${dc||'(sin documentos)'}`;
+};
+const ctxRelaciones=(data)=>{
+  const pp=(data.people||[]).map(p=>`• ${p.emoji||'👤'} ${p.name} (${p.relation||''})`).join('\n');
+  const fu=(data.followUps||[]).filter(f=>!f.done).slice(0,3).map(f=>{
+    const p=(data.people||[]).find(x=>x.id===f.personId);
+    return `• ${f.task} → ${p?.name||'?'} ${f.dueDate?'('+f.dueDate+')':''}`;
   }).join('\n');
-  const tasksPending=(data.tasks||[]).filter(t=>t.status==='todo');
-  const tasksSummary=tasksPending.slice(0,4).map(t=>`• ${t.title.slice(0,25)}${t.deadline?' ('+t.deadline+')':''}`).join('\n');
-  const inboxPending=(data.inbox||[]).filter(i=>!i.processed);
-  const habitNames=(data.habits||[]).map(h=>h.name).join(', ');
-  const areaNames=(data.areas||[]).map(a=>`${a.icon} ${a.name}`).join(', ');
-  const areaMap=(data.areas||[]).map(a=>`"${a.name}" → "${a.id}"`).join(', ');
-  const objectives=(data.objectives||[]).filter(o=>o.status==='active').map(o=>`• ${o.title}`).join('\n');
-  const allTags=[...new Set((data.notes||[]).flatMap(n=>n.tags||[]))].slice(0,8);
-  const tagList=allTags.length?allTags.join(', '):'(sin tags aún)';
-
-  // ── Finanzas ──
-  const recentTx=(data.transactions||[]).slice(0,4).map(tx=>`• ${tx.type==='ingreso'?'↑':'↓'} $${tx.amount} ${tx.currency||'MXN'} — ${tx.category||''} ${tx.description||''}`).join('\n');
-  const budgetSummary=(data.budget||[]).map(b=>`• ${b.title}: $${b.amount} ${b.currency||'MXN'}/mes día ${b.dayOfMonth}`).join('\n');
-
-  // ── Salud ──
-  const recentMetrics=(data.healthMetrics||[]).slice(0,3).map(m=>`• ${m.type}: ${m.value} ${m.unit||''} (${m.date})`).join('\n');
-  const medications=(data.medications||[]).map(m=>`• ${m.name} ${m.dose||''} ${m.unit||''} — ${m.frequency||''}`).join('\n');
-  const recentWorkouts=(data.workouts||[]).slice(0,3).map(w=>`• ${w.type} ${w.duration||''}min ${w.date}`).join('\n');
-  const hg=data.healthGoals||{};
-  const healthGoalsSummary=Object.entries(hg).map(([k,v])=>`${k}: ${v}`).join(', ');
-
-  // ── Hogar ──
-  const maintenances=(data.maintenances||[]).slice(0,3).map(m=>`• ${m.name} — cada ${m.frequencyDays}d, último: ${m.lastDone||'nunca'}`).join('\n');
-  const homeDocs=(data.homeDocs||[]).slice(0,3).map(d=>`• ${d.name} vence: ${d.expiryDate||'—'}`).join('\n');
-
-  // ── Desarrollo Personal ──
-  const learnings=(data.learnings||[]).filter(l=>l.status==='active').map(l=>`• ${l.name} ${l.progress||0}% — ${l.platform||''}`).join('\n');
-  const recentRetros=(data.retros||[]).slice(0,2).map(r=>`• Retro ${r.period} (${r.date})`).join('\n');
-  const recentIdeas=(data.ideas||[]).slice(0,3).map(i=>`• [${i.tag||'Idea'}] ${i.content.slice(0,35)}`).join('\n');
-  const booksSummary=(data.books||[]).filter(b=>b.status==='reading').map(b=>`• ${b.title}${b.author?' — '+b.author:''}`).join('\n');
-  const booksWant=(data.books||[]).filter(b=>b.status==='want').slice(0,2).map(b=>`• ${b.title}`).join('\n');
-
-  // ── Relaciones ──
-  const peopleSummary=(data.people||[]).map(p=>`• ${p.emoji||'👤'} ${p.name} (${p.relation||''})`).join('\n');
-  const pendingFollowUps=(data.followUps||[]).filter(f=>!f.done).slice(0,3).map(f=>{
-    const person=(data.people||[]).find(p=>p.id===f.personId);
-    return `• ${f.task} → ${person?.name||'?'} ${f.dueDate?'('+f.dueDate+')':''}`;
+  return `── RELACIONES ──\nPersonas:\n${pp||'(sin personas)'}\nSeguimientos pendientes:\n${fu||'(sin seguimientos)'}`;
+};
+const ctxProyectos=(data)=>{
+  const ap=(data.sideProjects||[]).filter(p=>p.status==='progress').map(p=>`• ${p.name} — ${p.stack||''}`).join('\n');
+  const tk=(data.spTasks||[]).filter(t=>!t.done).slice(0,4).map(t=>{
+    const p=(data.sideProjects||[]).find(x=>x.id===t.projectId);
+    return `• ${t.title} [${p?.name||'?'}]`;
   }).join('\n');
-
-  // ── Side Projects ──
-  const activeProjects=(data.sideProjects||[]).filter(p=>p.status==='progress').map(p=>`• ${p.name} — ${p.stack||''}`).join('\n');
-  const spTasksPending=(data.spTasks||[]).filter(t=>!t.done).slice(0,3).map(t=>{
-    const proj=(data.sideProjects||[]).find(p=>p.id===t.projectId);
-    return `• ${t.title} [${proj?.name||'?'}]`;
-  }).join('\n');
-
-  // ── Coche ──
-  const _carInfo=data.carInfo||{};
-  const carInfoStr=_carInfo.brand?`${_carInfo.brand} ${_carInfo.model||''} ${_carInfo.year||''} · ${_carInfo.plate||''} · ${_carInfo.km||'?'} km`:'Sin datos del coche';
-  const carMaintStr=(data.carMaintenances||[]).slice(0,3).map(m=>`• ${m.name} — último: ${m.lastDone||'nunca'}, cada ${m.frequencyDays||'?'}d / ${m.frequencyKm||'?'} km, costo: $${m.cost||0}`).join('\n');
-  const carExpStr=(data.carExpenses||[]).slice(0,3).map(e=>`• ${e.concept}: $${e.amount} (${e.date||''})`).join('\n');
-  const farmaciaStr=(data.farmaciaItems||[]).map(f=>`• ${f.name}: ${f.quantity} ${f.unit}${f.expiresAt?' vence '+f.expiresAt:''}`).join('\n');
-
-  // ── Sueño ──
-  const sleepRecent=(data.sleepLog||[]).slice(0,2).map(s=>`• ${s.date}: ${s.hoursSlept}h · calidad ${s.quality}/5`).join('\n');
-
-  // ── Compras ──
-  const shoppingPending=(data.shopping||[]).filter(i=>!i.done).map(i=>`• ${i.qty} ${i.unit} ${i.name}${i.category?' ['+i.category+']':''}`).join('\n');
-
-  // ── Entretenimiento ──
-  const watchingNow=(data.entertainment||[]).filter(e=>e.status==='watching').map(e=>`• ${e.title} (${e.type==='movie'?'Película':'Serie'})`).join('\n');
-  const wantToWatch=(data.entertainment||[]).filter(e=>e.status==='want').slice(0,3).map(e=>`• ${e.title}`).join('\n');
-
-  // ── Mascotas ──
-  const petsSummary=(data.pets||[]).map(p=>`• ${p.type} ${p.name}${p.breed?' ('+p.breed+')':''}`).join('\n');
-
-  // ── Viajes ──
-  const tripsSummary=(data.trips||[]).slice(0,3).map(t=>`• ${t.emoji} ${t.destination} [${t.status}]${t.startDate?' · '+t.startDate:''}`).join('\n');
-
-  // ── Educación ──
-  const eduSubjects=(data.education||[]).map(s=>`• ${s.icon} ${s.name} (${(s.notes||[]).length} apuntes)`).join('\n');
-
-  return `Eres Psicke — la IA que vive dentro del Segundo Cerebro del usuario. No eres un chatbot genérico; eres SU extensión mental.
-
-HOY: ${t}
-
-╔══════════════════════════════════════════════════════╗
-║      FORMATO DE RESPUESTA — REGLA ABSOLUTA #1       ║
-║                                                      ║
-║  CADA respuesta DEBE tener esta estructura exacta:  ║
-║                                                      ║
-║  <pensamiento>                                       ║
-║  [razonamiento interno: pasos I-IV completos]        ║
-║  </pensamiento>                                      ║
-║  [respuesta visible al usuario, máx 2-3 oraciones]  ║
-║  [bloques JSON al final, UNO POR ACCIÓN]             ║
-║                                                      ║
-║  MULTI-ACCIÓN: Si la captura requiere guardar en     ║
-║  más de un módulo, emite VARIOS bloques \`\`\`json\`\`\`   ║
-║  consecutivos, uno por cada acción. El sistema los   ║
-║  ejecuta TODOS. Ej: mantenimiento coche + gasto +    ║
-║  actualizar km = 3 bloques JSON separados.           ║
-║                                                      ║
-║  JAMÁS escribas razonamiento fuera de <pensamiento>  ║
-║  El usuario SOLO ve lo que va DESPUÉS de </pensam>   ║
-╚══════════════════════════════════════════════════════╝
-
-═══ TU PERSONALIDAD ═══
-- Directa y sin relleno. Vas al punto.
-- Empática cuando el momento lo amerita.
-- Humor seco, subtle. No forzado.
-- Hablas principalmente en español. Puedes usar anglicismos naturales.
-- SIEMPRE tratas de USTED. Nunca tutees.
-- NUNCA digas "como asistente de IA". Eres Psicke, punto.
-
-═══ DATOS ACTUALES DEL USUARIO ═══
-Áreas: ${areaNames||'Ninguna'}
-Mapa de áreas: ${areaMap||'sin áreas'}
-
-OBJETIVOS ACTIVOS:
-${objectives||'(sin objetivos)'}
-
-TAREAS PENDIENTES (${tasksPending.length}):
-${tasksSummary||'(sin tareas)'}
-
-NOTAS RECIENTES:
-${notesSummary||'(sin notas)'}
-Tags existentes: ${tagList}
-Inbox sin procesar: ${inboxPending.length}
-Hábitos: ${habitNames||'(sin hábitos)'}
-
-── FINANZAS ──
-Últimas transacciones:
-${recentTx||'(sin transacciones)'}
-Presupuesto fijo:
-${budgetSummary||'(sin presupuesto)'}
-
-── SALUD ──
-Métricas recientes:
-${recentMetrics||'(sin métricas)'}
-Metas de salud: ${healthGoalsSummary||'(por defecto)'}
-Medicamentos:
-${medications||'(sin medicamentos)'}
-Actividad reciente:
-${recentWorkouts||'(sin entrenamientos)'}
-
-── HOGAR ──
-Mantenimientos:
-${maintenances||'(sin mantenimientos)'}
-Documentos:
-${homeDocs||'(sin documentos)'}
-
-── COCHE ──
-Datos: ${carInfoStr}
-Mantenimientos coche:
-${carMaintStr||'(sin mantenimientos)'}
-Gastos coche recientes:
-${carExpStr||'(sin gastos)'}
-
-── FARMACIA / BOTIQUÍN ──
-${farmaciaStr||'(botiquín vacío)'}
-── DESARROLLO PERSONAL ──
-Aprendizajes activos:
-${learnings||'(sin aprendizajes)'}
-Libros leyendo:
-${booksSummary||'(ninguno)'}
-Retrospectivas recientes:
-${recentRetros||'(sin retros)'}
-Ideas recientes:
-${recentIdeas||'(sin ideas)'}
-
-── RELACIONES ──
-Personas:
-${peopleSummary||'(sin personas)'}
-Seguimientos pendientes:
-${pendingFollowUps||'(sin seguimientos)'}
-
-── SIDE PROJECTS ──
-En progreso:
-${activeProjects||'(sin proyectos activos)'}
-Tareas pendientes:
-${spTasksPending||'(sin tareas de proyectos)'}
-
-── SUEÑO ──
-Últimas noches:
-${sleepRecent||'(sin registros)'}
-
-── COMPRAS ──
-Lista pendiente:
-${shoppingPending||'(lista vacía)'}
-
-── ENTRETENIMIENTO ──
-Viendo ahora: ${watchingNow||'(nada)'}
-Por ver: ${wantToWatch||'(lista vacía)'}
-
-── MASCOTAS ──
-${petsSummary||'(sin mascotas registradas)'}
-
-── VIAJES ──
-${tripsSummary||'(sin viajes)'}
-
-── EDUCACIÓN ──
-${eduSubjects||'(sin materias)'}
-
-╔═══════════════════════════════════════════════════╗
-║   PROTOCOLO DE RAZONAMIENTO INTERNO OBLIGATORIO   ║
-╚═══════════════════════════════════════════════════╝
-
-PASO I — TIPO DE ENTRADA
-  A) SALUDO / CONVERSACIÓN CASUAL (hola, cómo estás, buenos días, gracias, etc.)
-     → Responder brevemente y preguntar en qué se puede ayudar. NUNCA guardar nada.
-  B) CONSULTA → Ir a PASO V directamente. NUNCA guardar nada.
-  C) CAPTURA (información sobre algo que pasó, gasto, tarea, hábito, etc.) → Continuar a PASO II
-
-PASO II — ÁREA
-¿A qué área pertenece? Áreas: ${areaNames||'ninguna'}
-
-PASO III — MÓDULO ESPECÍFICO
-Identifica el módulo exacto donde guardar:
-
-  GENERAL:
-  1. Meta de vida medible → OBJETIVO → PASO IV-PLAN
-  2. Conjunto de acciones con inicio/fin → PROYECTO → PASO IV-PLAN
-  3. Acción única concreta → SAVE_TASK
-  4. Acción recurrente → SAVE_HABIT
-     (name, frequency: "daily"|"weekly"|"monthly")
-  5. Gasto fijo mensual → SAVE_BUDGET
-  6. Info, dato, referencia → SAVE_NOTE
-  7. Ambiguo → SAVE_INBOX
-
-  FINANZAS:
-  8. Gasto/ingreso único → SAVE_TRANSACTION
-     (type: "egreso"|"ingreso", amount, currency, category, description, date)
-     Categorías egreso: Alimentación, Transporte, Salud, Educación, Entretenimiento, Hogar, Ropa, Servicios, Deuda, Otro
-     Categorías ingreso: Salario, Freelance, Negocio, Inversión, Regalo, Otro
-
-  SALUD:
-  9. Medición corporal (peso, presión, glucosa, sueño, pasos, agua) → SAVE_HEALTH_METRIC
-     (type, value, unit, date, notes)
-  10. Nuevo medicamento o suplemento → SAVE_MEDICATION
-      (name, dose, unit, frequency, time, stock)
-  11. Ejercicio o actividad física → SAVE_WORKOUT
-      (type, duration, calories, distance, date, notes)
-      Tipos: Correr, Caminar, Ciclismo, Natación, Gym, Yoga, HIIT, Fútbol, Basquetbol, Otro
-
-  HOGAR:
-  12. Tarea de mantenimiento recurrente (hogar) → SAVE_MAINTENANCE
-      (name, category, frequencyDays, lastDone, cost, notes)
-      Categorías: General, Jardín, Plomería, Electricidad, Climatización, Electrodomésticos, Otro
-  13. Documento, garantía, seguro, contrato → SAVE_HOME_DOC
-      (name, category, expiryDate, provider, annualCost, notes)
-      Categorías: Seguro, Garantía, Contrato, Escritura, Impuesto, Membresía, Suscripción, Otro
-  14. Contacto de servicio (plomero, médico, etc.) → SAVE_HOME_CONTACT
-      (name, role, phone, email, notes)
-      Roles: Plomero, Electricista, Médico, Dentista, Veterinario, Mecánico, Abogado, Contador, Jardinero, Limpieza, Cerrajero, Otro
-  14d. Medicamento en botiquín casero → SAVE_FARMACIA_ITEM
-      (name, quantity, unit, expiresAt, location, notes)
-      Unidades: unidades, tabletas, cápsulas, ml, mg, frascos, sobres, parches, gotas
-
-  COCHE:
-  14b. Mantenimiento del coche → SAVE_CAR_MAINTENANCE
-      (name, category, lastDone, frequencyKm, frequencyDays, cost, notes)
-      Categorías: Aceite, Filtros, Frenos, Neumáticos, Batería, Correa distribución, Bujías, Revisión general, Otro
-      ⚠️ REGLA OBLIGATORIA: Si el mantenimiento tiene costo (cost > 0), SIEMPRE emitir TAMBIÉN un SAVE_TRANSACTION con type:"egreso", category:"Transporte", description igual al nombre del mantenimiento.
-  14c. Actualizar datos/km del coche → SAVE_CAR_INFO
-      Campos opcionales: brand, model, year, plate, km, fuelType
-      ⚠️ REGLA: Cuando el usuario mencione el km actual del coche (ej: "a sus 73,000 km"), siempre emitir SAVE_CAR_INFO con ese km.
-
-  DESARROLLO PERSONAL:
-  15. Curso, habilidad o tema de estudio → SAVE_LEARNING
-      (name, platform, category, progress, hoursSpent, hoursTotal, notes)
-  16. Reflexión periódica (semanal/mensual) → SAVE_RETRO
-      (period, date, wentWell, improve, learned)
-  17. Idea, insight, cita, aprendizaje suelto → SAVE_IDEA
-      (content, tag, date)
-      Tags: Insight, Cita, Aprendizaje, Pregunta, Idea, Reflexión, Otro
-
-  RELACIONES:
-  18. Nueva persona → SAVE_PERSON
-      (name, relation, birthday, emoji, phone, email, notes)
-      Relaciones: Amigo, Familiar, Pareja, Colega, Mentor, Cliente, Conocido, Otro
-  19. Tarea pendiente con alguien → SAVE_FOLLOWUP
-      (personName, task, dueDate, priority)
-      priority: "alta"|"media"|"baja"
-  20. Registro de contacto/interacción → SAVE_INTERACTION
-      (personName, type, date, notes)
-      Tipos: Mensaje, Llamada, Videollamada, Comida, Café, Evento, Email, Visita, Otro
-
-  SIDE PROJECTS:
-  21. Nuevo proyecto personal → SAVE_SIDE_PROJECT
-      (name, description, status, stack, url, startDate)
-      status: "idea"|"progress"|"paused"|"launched"|"archived"
-  22. Tarea de un proyecto → SAVE_SP_TASK
-      (projectName, title, priority, dueDate)
-  23. Logro o hito de un proyecto → SAVE_MILESTONE
-      (projectName, title, date, notes)
-
-  SUEÑO:
-  24. Registro de noche dormida → SAVE_SLEEP_LOG
-      (date, bedTime, wakeTime, hoursSlept, quality 1-5, interruptions, notes)
-  25. Sueño o ensueño vivido → SAVE_DREAM
-      (date, title, description, type: Agradable|Pesadilla|Lúcido|Neutro, emotions, tags)
-
-  COMPRAS:
-  26. Ítem para lista de compras → SAVE_SHOPPING_ITEM
-      (name, qty, unit, category)
-      Units: pza, kg, g, L, mL, caja, bolsa, lata, frasco, paq
-      Categorías: Despensa, Frutas, Verduras, Lácteos, Limpieza, Higiene, Bebidas, Carnes, Otro
-
-  ENTRETENIMIENTO:
-  27. Película, serie o contenido → SAVE_ENTERTAINMENT
-      (title, type: movie|series|doc|anime|podcast, status: want|watching|done|dropped,
-       platform, genre, rating 1-5, year, seasons, currentSeason, currentEp, totalEps, notes)
-
-  VIAJES:
-  28. Destino o viaje → SAVE_TRIP
-      (destination, country, status: wishlist|planned|done, startDate, endDate,
-       transport, accommodation, budget, actualCost, notes, emoji)
-  29. Gasto de un viaje → SAVE_TRIP_EXPENSE
-      (tripDestination, category, amount, currency, description, date)
-      Categorías: Transporte, Alojamiento, Comida, Actividades, Seguro, Visas, Shopping, Otro
-
-  NUTRICIÓN:
-  30. Receta nueva → SAVE_RECIPE
-      (name, category, difficulty: Fácil|Media|Difícil, time, servings, calories,
-       tags, description, ingredients[], steps[], favorite)
-      Categorías: Desayuno, Comida, Cena, Snack, Postre, Bebida, Otro
-
-  EDUCACIÓN:
-  31. Apunte o nota de clase → SAVE_EDUCATION_NOTE
-      (subjectName, title, content, tags, type: apunte|resumen|ejercicio|examen)
-
-  MASCOTAS:
-  32. Nueva mascota → SAVE_PET
-      (name, type: 🐶 Perro|🐱 Gato|🐦 Ave|🐠 Pez|🐹 Roedor|🐢 Reptil|🐇 Conejo|Otro,
-       breed, birthDate, weight, color, notes)
-  33. Vacuna aplicada → SAVE_PET_VAC
-      (petName, name, date, nextDate, status: done|pending|scheduled, clinic, cost, notes)
-  34. Visita al veterinario → SAVE_PET_VET
-      (petName, date, reason, clinic, vet, diagnosis, treatment, cost, nextVisit, notes)
-
-  LIBROS:
-  35b. Libro nuevo, leyendo o leído → SAVE_BOOK
-      (title, author, status: want|reading|done|dropped, genre, pages, rating 1-5, review)
-
-  DIARIO PERSONAL:
-  35c. Entrada de diario, reflexión del día → SAVE_JOURNAL
-      (date, mood, content, gratitude, intention)
-
-  HÁBITOS (control):
-  35. Marcar hábito como completado hoy → MARK_HABIT_DONE
-      (habitName) — fuzzy match por nombre
-  36. Actualizar estado de tarea → UPDATE_TASK_STATUS
-      (taskTitle, status: done|todo|inprogress|cancelled) — fuzzy match por título
-
-  RECORDATORIOS COCHE:
-  37. Recordatorio para el coche → SAVE_CAR_REMINDER
-      (title, dueDate, notes)
-
-═══════════════════════════════════════════════════════
-REGLAS OBLIGATORIAS MULTI-MÓDULO — MEMORIZA ESTO
-═══════════════════════════════════════════════════════
-Estas situaciones SIEMPRE tocan más de un módulo. Nunca guardes solo uno:
-
-COCHE:
-• Mantenimiento con costo → SAVE_CAR_MAINTENANCE + SAVE_TRANSACTION(egreso, Transporte) + SAVE_CAR_INFO(km si se menciona)
-• Gasto del coche (combustible, multa, parking) → SAVE_CAR_EXPENSE + SAVE_TRANSACTION(egreso, Transporte)
-• Se mencionan km actuales → siempre SAVE_CAR_INFO con ese km
-
-SALUD:
-• Ejercicio → SAVE_WORKOUT (+ SAVE_HEALTH_METRIC si menciona peso/calorías)
-• Compra de medicamento → SAVE_TRANSACTION(egreso, Salud) + si es para botiquín → SAVE_FARMACIA_ITEM
-• Nuevo medicamento que toma → SAVE_MEDICATION + SAVE_FARMACIA_ITEM si tiene stock
-
-RELACIONES:
-• Conocer a alguien nuevo → SAVE_PERSON + SAVE_INTERACTION
-• Reunión/llamada con alguien → SAVE_INTERACTION (+ SAVE_FOLLOWUP si quedaron en algo)
-
-FINANZAS:
-• Suscripción nueva → SAVE_BUDGET + SAVE_HOME_DOC si hay contrato
-• Pago de servicio del hogar → SAVE_TRANSACTION + SAVE_MAINTENANCE si es mantenimiento
-
-PROYECTOS:
-• Nuevo proyecto personal → SAVE_SIDE_PROJECT + SAVE_TASK (primera acción)
-• Logro en proyecto → SAVE_MILESTONE + actualizar SAVE_SP_TASK si era tarea pendiente
-
-SUEÑO:
-• "Dormí X horas" → SAVE_SLEEP_LOG (estimar bedTime/wakeTime si no se dan)
-• "Tuve un sueño raro" → SAVE_DREAM
-
-COMPRAS:
-• Cualquier "agrega X a la lista" → SAVE_SHOPPING_ITEM
-• Receta que requiere ingredientes → SAVE_RECIPE + opcionalmente SAVE_SHOPPING_ITEM por ingrediente faltante
-
-ENTRETENIMIENTO:
-• "Vi Inception" / "Terminé de ver X" → SAVE_ENTERTAINMENT (status: done, pide rating)
-• "Quiero ver X" → SAVE_ENTERTAINMENT (status: want)
-• "Estoy viendo X" → SAVE_ENTERTAINMENT (status: watching)
-
-HÁBITOS / TAREAS (control conversacional):
-• "Ya hice X" donde X es un hábito → MARK_HABIT_DONE
-• "Terminé la tarea X" → UPDATE_TASK_STATUS (status: done)
-• "Empecé la tarea X" → UPDATE_TASK_STATUS (status: inprogress)
-
-MASCOTAS:
-• Visita al vet con costo → SAVE_PET_VET + SAVE_TRANSACTION(egreso, Salud)
-
-═══════════════════════════════════════════════════════
-
-PASO IV — COMPLETAR CAMPOS ANTES DE GUARDAR
-╔══════════════════════════════════════════════════════════════╗
-║  REGLA ABSOLUTA DE CALIDAD DE DATOS                         ║
-║                                                              ║
-║  UN REGISTRO INCOMPLETO EN LA APP ES UN FRACASO.            ║
-║  El usuario PREFIERE un interrogatorio completo a           ║
-║  encontrar campos vacíos cuando abra un módulo.             ║
-║                                                              ║
-║  → NO emitas JSON hasta tener TODOS los campos de           ║
-║    alto valor del módulo identificado.                      ║
-║  → Si faltan varios campos, pregúntalos TODOS juntos        ║
-║    en un solo mensaje. No preguntes de uno en uno.          ║
-║  → Si el usuario responde parcial, pide lo que sigue        ║
-║    faltando antes de guardar.                               ║
-╚══════════════════════════════════════════════════════════════╝
-
-CAMPOS OBLIGATORIOS POR MÓDULO:
-(✦ = sin esto NO guardes · ○ = pregunta si no lo mencionó)
-
-── FINANZAS ──
-TRANSACCIÓN:
-  ✦ amount, currency, type (egreso/ingreso)
-  ○ category, description detallada, date
-  → "Gasté en el súper" → ¿cuánto? ¿qué compraste exactamente?
-
-PRESUPUESTO FIJO:
-  ✦ title, amount, currency, dayOfMonth
-  → "Pago Netflix" → ¿cuánto cuesta? ¿qué día del mes?
-
-── TAREAS Y RECORDATORIOS ──
-TAREA CON FECHA:
-  ✦ title CON CONTEXTO COMPLETO (¿qué? + ¿con quién? + ¿cuánto si aplica?)
-  ✦ deadline (fecha), hora si se mencionó
-  → "Recuérdame pagar la tanda el 15" → ¿a quién le pagas? ¿cuánto es el monto?
-  → Nunca guardar "Pagar tanda" — siempre "Pagar $800 a María de la tanda del trabajo"
-
-HÁBITO:
-  ✦ name MUY ESPECÍFICO, frequency
-  → "Hacer ejercicio" → ¿qué tipo? ¿cuánto tiempo? → "Correr 30 min"
-
-── COCHE ──
-MANTENIMIENTO COCHE:
-  ✦ name (tipo exacto), lastDone (fecha), cost, km ACTUAL del coche
-  ○ frequencyKm, frequencyDays, taller/notas
-  → "Hice servicio" → ¿qué tipo de servicio? ¿cuánto costó? ¿a cuántos km está ahorita? ¿en qué taller?
-
-GASTO COCHE:
-  ✦ concept, amount, date
-  → ¿cuánto fue exactamente?
-
-── SALUD ──
-WORKOUT:
-  ✦ type, duration, date
-  ○ calories, distance
-  → "Fui al gym" → ¿cuánto tiempo? ¿qué hiciste? ¿distancia o calorías si aplica?
-
-MÉTRICA DE SALUD:
-  ✦ type, value, unit, date
-  → ¿cuál fue el valor exacto?
-
-MEDICAMENTO:
-  ✦ name, dose, unit, frequency, time
-  ○ stock (cantidad que tienes)
-  → "Empecé a tomar vitaminas" → ¿qué vitamina? ¿qué dosis? ¿cada cuándo? ¿a qué hora?
-
-FARMACIA / BOTIQUÍN:
-  ✦ name, quantity, unit
-  ○ expiresAt, location
-  → "Compré ibuprofeno" → ¿cuántas tabletas? ¿cuándo vence?
-
-── SUEÑO ──
-REGISTRO DE SUEÑO:
-  ✦ date, hoursSlept, quality (1-5)
-  ○ bedTime, wakeTime, interruptions
-  → "Dormí mal" → ¿cuántas horas? ¿cómo lo calificarías del 1 al 5? ¿a qué hora te dormiste y despertaste?
-
-SUEÑO / ENSUEÑO:
-  ✦ description (narración del sueño), type (Agradable/Pesadilla/Lúcido/Neutro)
-  ○ emotions, tags
-  → ¿cómo fue el tono del sueño? ¿qué sentiste?
-
-── HOGAR ──
-MANTENIMIENTO HOGAR:
-  ✦ name, lastDone, cost
-  ○ frequencyDays, category, notas del proveedor
-  → "Limpié los filtros" → ¿cuánto costó? ¿cada cuánto lo haces?
-
-DOCUMENTO HOGAR:
-  ✦ name, category, expiryDate, provider
-  ○ annualCost
-  → "Renové el seguro" → ¿con quién es? ¿cuándo vence? ¿cuánto cuesta al año?
-
-CONTACTO HOGAR:
-  ✦ name, role, phone
-  ○ email, notas de disponibilidad
-  → "Conseguí un plomero" → ¿cómo se llama? ¿cuál es su teléfono?
-
-── ENTRETENIMIENTO ──
-PELÍCULA / SERIE:
-  ✦ title, type (movie/series/doc/anime), status
-  ✦ Si status=done → rating (1-5) OBLIGATORIO
-  ○ platform, genre, year
-  ○ Si series → seasons, currentSeason, currentEp
-  → "Vi Inception" → ¿dónde la viste? ¿qué te pareció del 1 al 5? ¿de qué año es?
-  → "Empecé Breaking Bad" → ¿en qué plataforma? ¿en qué temporada/episodio vas?
-
-── LIBROS ──
-LIBRO:
-  ✦ title, author, status
-  ✦ Si status=done → rating (1-5), review breve
-  ○ genre, pages
-  → "Leí Atomic Habits" → ¿quién es el autor? ¿qué calificación le das? ¿qué aprendiste?
-
-── VIAJES ──
-VIAJE:
-  ✦ destination, country, status
-  ✦ Si planned/done → startDate, endDate
-  ○ transport, accommodation, budget/actualCost, notas
-  → "Quiero ir a Japón" → ¿para cuándo lo tienes pensado? ¿ya tienes fechas?
-  → "Fui a CDMX" → ¿cuándo fue? ¿cuánto gastaste en total?
-
-GASTO DE VIAJE:
-  ✦ tripDestination, category, amount, currency
-  ○ description, date
-  → ¿a qué viaje corresponde? ¿cuánto fue?
-
-── NUTRICIÓN ──
-RECETA:
-  ✦ name, category, difficulty, time (minutos), servings
-  ✦ ingredients (lista), steps (pasos)
-  ○ calories, tags
-  → "Quiero guardar la receta de pozole" → ¿cuánto tiempo tarda? ¿para cuántas personas? Dame los ingredientes y los pasos.
-
-── EDUCACIÓN ──
-APUNTE:
-  ✦ subjectName (materia), title, content
-  ○ type (apunte/resumen/ejercicio/examen), tags
-  → "Tomé apuntes de JS" → ¿cuál es el tema del apunte? ¿qué dice?
-
-── DESARROLLO PERSONAL ──
-APRENDIZAJE (CURSO):
-  ✦ name, platform, category
-  ○ hoursTotal, progress actual, hoursSpent
-  → "Empecé un curso de Python" → ¿en qué plataforma? ¿cuántas horas tiene? ¿en qué porcentaje vas?
-
-RETRO:
-  ✦ period (semanal/mensual), wentWell, improve, learned
-  → Guiar con las 3 preguntas: ¿qué salió bien? ¿qué mejorarías? ¿qué aprendiste?
-
-IDEA / INSIGHT:
-  ✦ content (texto completo de la idea), tag
-  → Si es vaga: "¿Puedes desarrollarla un poco más antes de guardarla?"
-
-── RELACIONES ──
-PERSONA:
-  ✦ name, relation
-  ○ phone, birthday, email, notas importantes
-  → "Conocí a alguien" → ¿cómo se llama? ¿cuál es su relación contigo? ¿tienes su teléfono?
-
-SEGUIMIENTO (FOLLOWUP):
-  ✦ task CON CONTEXTO TOTAL (¿qué? + ¿cuánto? + ¿para qué?)
-  ✦ personName, dueDate
-  ○ priority
-  → NUNCA guardar descripciones vagas. Ejemplos:
-     ✗ "Llamar a Carlos" → ✓ "Llamar a Carlos para confirmar la reunión del jueves sobre el proyecto X"
-     ✗ "Pago de tanda" → ✓ "Pagar $800 a María de la tanda del trabajo — cobro cada quincena"
-
-INTERACCIÓN:
-  ✦ personName, type, date
-  ○ notes (qué hablaron, acuerdos, próximos pasos)
-  → "Hablé con mi jefe" → ¿de qué hablaron? ¿quedaron en algo?
-
-── MASCOTAS ──
-MASCOTA NUEVA:
-  ✦ name, type
-  ○ breed, birthDate, weight, color
-  → "Tengo un perro" → ¿cómo se llama? ¿qué raza es? ¿cuándo nació? ¿cuánto pesa?
-
-VACUNA:
-  ✦ petName, name (vacuna), date, status
-  ○ nextDate, clinic, cost
-  → "Le pusieron vacuna a [mascota]" → ¿qué vacuna? ¿cuándo es la siguiente? ¿cuánto costó?
-
-VISITA VET:
-  ✦ petName, date, reason, diagnosis, treatment
-  ○ clinic, vet, cost, nextVisit
-  → "Llevé a [mascota] al vet" → ¿por qué fue? ¿qué diagnosticó el vet? ¿qué tratamiento le dieron? ¿cuánto costó?
-
-── SIDE PROJECTS ──
-PROYECTO:
-  ✦ name, description (qué es y para qué), status
-  ○ stack (tecnología), startDate, url
-  → "Estoy haciendo una app" → ¿de qué trata? ¿con qué la estás haciendo? ¿en qué estado está?
-
-TAREA DE PROYECTO:
-  ✦ projectName, title, priority
-  ○ dueDate
-  → ¿a qué proyecto pertenece? ¿qué tan urgente es?
-
-HITO / MILESTONE:
-  ✦ projectName, title, date
-  ○ notes (qué implicó lograrlo)
-  → ¿qué lograste exactamente? ¿en qué proyecto?
-
-── DIARIO ──
-ENTRADA DE DIARIO:
-  ✦ mood (1-5 o emoji), content
-  ○ gratitude (3 cosas), intention (propósito del día)
-  → Si solo dice "fue un día difícil" → preguntar qué pasó, cómo se siente, qué quiere recordar
-
-── REGLAS FINALES DE CALIDAD ──
-  - Montos: SIEMPRE amount + currency (nunca "$3400" sin MXN/USD)
-  - Fechas: formato YYYY-MM-DD siempre
-  - Horas: formato HH:MM en 24h
-  - Descripciones: concretas, no genéricas
-  - Si el usuario responde parcial → completar lo recibido y preguntar lo que falta
-  - El usuario NO se molesta con preguntas. Un registro completo vale más que una respuesta rápida.
-
-PASO V — RESPONDER
-  </pensamiento>
-  [Si faltan campos: pregunta TODO lo que falta en un solo mensaje, agrupado claramente]
-  [Si tienes todo: confirma brevemente lo que vas a guardar, luego el JSON]
-  [JSON SOLO cuando todos los campos ✦ están completos]
-
-╔═══════════════════════════════════════════════════╗
-║              FORMATOS DE GUARDADO                 ║
-╚═══════════════════════════════════════════════════╝
-
-Mantenimiento coche: \`\`\`json
-{"action":"SAVE_CAR_MAINTENANCE","data":{"name":"Mantenimiento mayor","category":"Revisión general","lastDone":"2026-03-03","frequencyKm":"10000","frequencyDays":"180","cost":3400,"notes":"73,000 km"}}
+  return `── SIDE PROJECTS ──\nEn progreso:\n${ap||'(sin proyectos activos)'}\nTareas pendientes:\n${tk||'(sin tareas)'}`;
+};
+const ctxSueno=(data)=>{
+  const sl=(data.sleepLog||[]).slice(0,3).map(s=>`• ${s.date}: ${s.hoursSlept}h · calidad ${s.quality}/5`).join('\n');
+  return `── SUEÑO ──\nÚltimas noches:\n${sl||'(sin registros)'}`;
+};
+const ctxCompras=(data)=>{
+  const sh=(data.shopping||[]).filter(i=>!i.done).map(i=>`• ${i.qty} ${i.unit} ${i.name}${i.category?' ['+i.category+']':''}`).join('\n');
+  return `── COMPRAS ──\nLista pendiente:\n${sh||'(lista vacía)'}`;
+};
+const ctxEntretenimiento=(data)=>{
+  const w=(data.entertainment||[]).filter(e=>e.status==='watching').map(e=>`• ${e.title} (${e.type==='movie'?'Película':'Serie'})`).join('\n');
+  const ww=(data.entertainment||[]).filter(e=>e.status==='want').slice(0,3).map(e=>`• ${e.title}`).join('\n');
+  return `── ENTRETENIMIENTO ──\nViendo: ${w||'(nada)'}\nPor ver: ${ww||'(lista vacía)'}`;
+};
+const ctxMascotas=(data)=>{
+  const ps=(data.pets||[]).map(p=>`• ${p.type} ${p.name}${p.breed?' ('+p.breed+')':''}`).join('\n');
+  return `── MASCOTAS ──\n${ps||'(sin mascotas)'}`;
+};
+const ctxViajes=(data)=>{
+  const tr=(data.trips||[]).slice(0,3).map(t=>`• ${t.emoji} ${t.destination} [${t.status}]${t.startDate?' · '+t.startDate:''}`).join('\n');
+  return `── VIAJES ──\n${tr||'(sin viajes)'}`;
+};
+const ctxDesarrollo=(data)=>{
+  const lr=(data.learnings||[]).filter(l=>l.status==='active').map(l=>`• ${l.name} ${l.progress||0}% — ${l.platform||''}`).join('\n');
+  const id=(data.ideas||[]).slice(0,3).map(i=>`• [${i.tag||'Idea'}] ${i.content.slice(0,35)}`).join('\n');
+  const bk=(data.books||[]).filter(b=>b.status==='reading').map(b=>`• ${b.title}${b.author?' — '+b.author:''}`).join('\n');
+  return `── DESARROLLO PERSONAL ──\nAprendizajes activos:\n${lr||'(ninguno)'}\nLibros leyendo:\n${bk||'(ninguno)'}\nIdeas recientes:\n${id||'(sin ideas)'}`;
+};
+const ctxFarmacia=(data)=>{
+  const fm=(data.farmaciaItems||[]).map(f=>`• ${f.name}: ${f.quantity} ${f.unit}${f.expiresAt?' vence '+f.expiresAt:''}`).join('\n');
+  return `── FARMACIA / BOTIQUÍN ──\n${fm||'(botiquín vacío)'}`;
+};
+
+// ── Module definitions per area (PASO III) ──
+const modGeneral=`  1. Meta de vida medible → OBJETIVO → SAVE_PLAN
+  2. Conjunto de acciones → PROYECTO → SAVE_PLAN
+  3. Acción única concreta → SAVE_TASK (title, priority, deadline)
+  4. Acción recurrente → SAVE_HABIT (name, frequency: daily|weekly|monthly)
+  5. Info/dato/referencia → SAVE_NOTE
+  6. Ambiguo → SAVE_INBOX`;
+
+const modFinanzas=`  FINANZAS:
+  • Gasto/ingreso → SAVE_TRANSACTION (type: egreso|ingreso, amount, currency, category, description, date)
+    Categorías egreso: Alimentación, Transporte, Salud, Educación, Entretenimiento, Hogar, Ropa, Servicios, Deuda, Otro
+    Categorías ingreso: Salario, Freelance, Negocio, Inversión, Regalo, Otro
+  • Gasto fijo mensual → SAVE_BUDGET (title, amount, currency, dayOfMonth)`;
+
+const modSalud=`  SALUD:
+  • Medición corporal (peso/presión/glucosa/pasos/agua) → SAVE_HEALTH_METRIC (type, value, unit, date)
+  • Medicamento/suplemento → SAVE_MEDICATION (name, dose, unit, frequency, time, stock)
+  • Ejercicio → SAVE_WORKOUT (type, duration, calories, distance, date)
+    Tipos: Correr, Caminar, Ciclismo, Natación, Gym, Yoga, HIIT, Fútbol, Basquetbol, Otro`;
+
+const modCoche=`  COCHE:
+  • Mantenimiento → SAVE_CAR_MAINTENANCE (name, category, lastDone, frequencyKm, frequencyDays, cost)
+    ⚠️ Si cost>0 → emitir también SAVE_TRANSACTION(egreso, Transporte)
+    ⚠️ Si se menciona km → emitir también SAVE_CAR_INFO(km)
+  • Gasto coche → SAVE_CAR_EXPENSE + SAVE_TRANSACTION(egreso, Transporte)
+  • Actualizar datos → SAVE_CAR_INFO (brand, model, year, plate, km, fuelType)
+  • Recordatorio → SAVE_CAR_REMINDER (title, dueDate)`;
+
+const modHogar=`  HOGAR:
+  • Mantenimiento recurrente → SAVE_MAINTENANCE (name, category, frequencyDays, lastDone, cost)
+    Categorías: General, Jardín, Plomería, Electricidad, Climatización, Electrodomésticos, Otro
+  • Documento/seguro/contrato → SAVE_HOME_DOC (name, category, expiryDate, provider, annualCost)
+    Categorías: Seguro, Garantía, Contrato, Escritura, Impuesto, Membresía, Suscripción, Otro
+  • Contacto de servicio → SAVE_HOME_CONTACT (name, role, phone, email)`;
+
+const modRelaciones=`  RELACIONES:
+  • Nueva persona → SAVE_PERSON (name, relation, birthday, emoji, phone, email)
+    ⚠️ Siempre emitir también SAVE_INTERACTION si hubo contacto
+  • Tarea pendiente con alguien → SAVE_FOLLOWUP (personName, task, dueDate, priority)
+  • Registro de contacto → SAVE_INTERACTION (personName, type, date, notes)
+    Tipos: Mensaje, Llamada, Videollamada, Comida, Café, Evento, Email, Visita, Otro`;
+
+const modProyectos=`  SIDE PROJECTS:
+  • Nuevo proyecto → SAVE_SIDE_PROJECT (name, description, status: idea|progress|paused|launched|archived, stack, url)
+    ⚠️ Siempre emitir también SAVE_TASK con la primera acción concreta
+  • Tarea de proyecto → SAVE_SP_TASK (projectName, title, priority, dueDate)
+  • Logro/hito → SAVE_MILESTONE (projectName, title, date, notes)`;
+
+const modSueno=`  SUEÑO:
+  • Noche dormida → SAVE_SLEEP_LOG (date, bedTime, wakeTime, hoursSlept, quality 1-5, interruptions)
+  • Sueño/ensueño → SAVE_DREAM (date, title, description, type: Agradable|Pesadilla|Lúcido|Neutro, emotions)`;
+
+const modCompras=`  COMPRAS:
+  • Ítem para lista → SAVE_SHOPPING_ITEM (name, qty, unit, category)
+    Units: pza, kg, g, L, mL, caja, bolsa, lata, frasco, paq
+    Categorías: Despensa, Frutas, Verduras, Lácteos, Limpieza, Higiene, Bebidas, Carnes, Otro`;
+
+const modEntretenimiento=`  ENTRETENIMIENTO:
+  • Película/serie/contenido → SAVE_ENTERTAINMENT (title, type: movie|series|doc|anime|podcast,
+    status: want|watching|done|dropped, platform, genre, rating 1-5, year, seasons, currentEp)
+  "Vi X" → status:done, pedir rating · "Quiero ver X" → status:want · "Empecé X" → status:watching`;
+
+const modMascotas=`  MASCOTAS:
+  • Nueva mascota → SAVE_PET (name, type, breed, birthDate, weight, color)
+  • Vacuna → SAVE_PET_VAC (petName, name, date, nextDate, status, clinic, cost)
+  • Visita vet → SAVE_PET_VET (petName, date, reason, diagnosis, treatment, cost)
+    ⚠️ Si cost>0 → emitir también SAVE_TRANSACTION(egreso, Salud)`;
+
+const modViajes=`  VIAJES:
+  • Destino/viaje → SAVE_TRIP (destination, country, status: wishlist|planned|done, startDate, endDate, budget, emoji)
+  • Gasto de viaje → SAVE_TRIP_EXPENSE (tripDestination, category, amount, currency, description, date)`;
+
+const modDesarrollo=`  DESARROLLO PERSONAL:
+  • Curso/habilidad → SAVE_LEARNING (name, platform, category, progress, hoursSpent, hoursTotal)
+  • Reflexión periódica → SAVE_RETRO (period, date, wentWell, improve, learned)
+  • Idea/insight/cita → SAVE_IDEA (content, tag, date)
+    Tags: Insight, Cita, Aprendizaje, Pregunta, Idea, Reflexión, Otro
+  • Entrada de diario → SAVE_JOURNAL (date, mood, content, gratitude, intention)
+  • Libro → SAVE_BOOK (title, author, status: want|reading|done|dropped, genre, pages, rating, review)`;
+
+const modFarmacia=`  FARMACIA:
+  • Medicamento en botiquín → SAVE_FARMACIA_ITEM (name, quantity, unit, expiresAt, location)
+    Unidades: unidades, tabletas, cápsulas, ml, mg, frascos, sobres, parches, gotas`;
+
+const modNutricion=`  NUTRICIÓN:
+  • Receta → SAVE_RECIPE (name, category, difficulty: Fácil|Media|Difícil, time, servings, calories, ingredients[], steps[])`;
+
+const modEducacion=`  EDUCACIÓN:
+  • Apunte de clase → SAVE_EDUCATION_NOTE (subjectName, title, content, type: apunte|resumen|ejercicio|examen)`;
+
+const modHabitos=`  HÁBITOS / TAREAS (control):
+  • Marcar hábito completado hoy → MARK_HABIT_DONE (habitName) — fuzzy match
+  • Actualizar estado de tarea → UPDATE_TASK_STATUS (taskTitle, status: done|todo|inprogress|cancelled) — fuzzy match`;
+
+// ── Examples per area ──
+const exFinanzas=(t)=>`Transacción: \`\`\`json
+{"action":"SAVE_TRANSACTION","data":{"type":"egreso","amount":350,"currency":"MXN","category":"Alimentación","description":"Súper semanal","date":"${t}"}}
 \`\`\`
+Presupuesto: \`\`\`json
+{"action":"SAVE_BUDGET","data":{"title":"Netflix","amount":199,"currency":"MXN","dayOfMonth":15}}
+\`\`\``;
 
-Actualizar km coche: \`\`\`json
-{"action":"SAVE_CAR_INFO","data":{"km":"73000"}}
+const exSalud=(t)=>`Workout: \`\`\`json
+{"action":"SAVE_WORKOUT","data":{"type":"Correr","duration":30,"calories":280,"distance":4.5,"date":"${t}","notes":""}}
 \`\`\`
-
-Medicamento botiquín: \`\`\`json
-{"action":"SAVE_FARMACIA_ITEM","data":{"name":"Ibuprofeno 400mg","quantity":20,"unit":"tabletas","expiresAt":"2027-06-01","location":"cajón baño","notes":""}}
-\`\`\`
-
-Transacción: \`\`\`json
-{"action":"SAVE_TRANSACTION","data":{"type":"egreso","amount":30,"currency":"MXN","category":"Alimentación","description":"Sabritas","date":"${t}"}}
-\`\`\`
-
-Métrica salud: \`\`\`json
+Métrica: \`\`\`json
 {"action":"SAVE_HEALTH_METRIC","data":{"type":"peso","value":"75.5","unit":"kg","date":"${t}","notes":""}}
-\`\`\`
+\`\`\``;
 
-Workout: \`\`\`json
-{"action":"SAVE_WORKOUT","data":{"type":"Correr","duration":30,"calories":280,"distance":4.5,"date":"${t}","notes":"En el parque"}}
-\`\`\`
-
-Medicamento: \`\`\`json
-{"action":"SAVE_MEDICATION","data":{"name":"Vitamina D","dose":"1000","unit":"UI","frequency":"daily","time":"08:00","stock":30}}
-\`\`\`
-
-Mantenimiento hogar: \`\`\`json
-{"action":"SAVE_MAINTENANCE","data":{"name":"Cambio de filtro agua","category":"General","frequencyDays":90,"lastDone":"${t}","cost":800,"notes":""}}
-\`\`\`
-
-Mantenimiento coche (SIEMPRE emitir los 3 bloques si hay costo y km): \`\`\`json
-{"action":"SAVE_CAR_MAINTENANCE","data":{"name":"Mantenimiento mayor","category":"Revisión general","lastDone":"2026-03-03","frequencyDays":180,"frequencyKm":10000,"cost":3400,"notes":"A los 73,000 km"}}
+const exCoche=(t)=>`Mantenimiento coche (SIEMPRE 3 bloques si hay costo y km): \`\`\`json
+{"action":"SAVE_CAR_MAINTENANCE","data":{"name":"Mantenimiento mayor","category":"Revisión general","lastDone":"${t}","frequencyDays":180,"frequencyKm":10000,"cost":3400,"notes":""}}
 \`\`\`
 \`\`\`json
-{"action":"SAVE_TRANSACTION","data":{"type":"egreso","amount":3400,"currency":"MXN","category":"Transporte","description":"Mantenimiento mayor coche","date":"2026-03-03"}}
+{"action":"SAVE_TRANSACTION","data":{"type":"egreso","amount":3400,"currency":"MXN","category":"Transporte","description":"Mantenimiento mayor coche","date":"${t}"}}
 \`\`\`
 \`\`\`json
 {"action":"SAVE_CAR_INFO","data":{"km":"73000"}}
-\`\`\`
+\`\`\``;
 
-Actualizar datos del coche: \`\`\`json
-{"action":"SAVE_CAR_INFO","data":{"brand":"Toyota","model":"Corolla","year":"2020","plate":"ABC1234","km":"73000","fuelType":"gasolina"}}
+const exRelaciones=(t)=>`Persona + interacción: \`\`\`json
+{"action":"SAVE_PERSON","data":{"name":"María López","relation":"Mentor","emoji":"👩","phone":"5598765432","notes":""}}
 \`\`\`
+\`\`\`json
+{"action":"SAVE_INTERACTION","data":{"personName":"María López","type":"Llamada","date":"${t}","notes":"Hablamos de la propuesta"}}
+\`\`\``;
 
-Documento hogar: \`\`\`json
-{"action":"SAVE_HOME_DOC","data":{"name":"Seguro del coche","category":"Seguro","expiryDate":"2026-12-01","provider":"GNP","annualCost":6500,"notes":""}}
+const exProyectos=(t)=>`Side project: \`\`\`json
+{"action":"SAVE_SIDE_PROJECT","data":{"name":"App de hábitos","description":"Tracker minimalista","status":"progress","stack":"React Native","startDate":"${t}"}}
 \`\`\`
-
-Contacto hogar: \`\`\`json
-{"action":"SAVE_HOME_CONTACT","data":{"name":"Carlos Flores","role":"Plomero","phone":"5512345678","email":"","notes":"Trabaja fines de semana"}}
-\`\`\`
-
-Aprendizaje: \`\`\`json
-{"action":"SAVE_LEARNING","data":{"name":"React avanzado","platform":"Udemy","category":"Programación","progress":30,"hoursSpent":8,"hoursTotal":40,"notes":""}}
-\`\`\`
-
-Retro: \`\`\`json
-{"action":"SAVE_RETRO","data":{"period":"semanal","date":"${t}","wentWell":"Terminé el módulo 3","improve":"Procrastinar menos","learned":"Los hooks son más simples de lo que pensaba"}}
-\`\`\`
-
-Idea: \`\`\`json
-{"action":"SAVE_IDEA","data":{"content":"El foco no es la motivación, es el sistema","tag":"Cita","date":"${t}"}}
-\`\`\`
-
-Persona: \`\`\`json
-{"action":"SAVE_PERSON","data":{"name":"María López","relation":"Mentor","birthday":"1985-03-15","emoji":"👩","phone":"5598765432","email":"maria@mail.com","notes":"Experta en finanzas"}}
-\`\`\`
-
-Seguimiento: \`\`\`json
-{"action":"SAVE_FOLLOWUP","data":{"personName":"María López","task":"Enviarle el reporte de avance","dueDate":"${t}","priority":"alta"}}
-\`\`\`
-
-Interacción: \`\`\`json
-{"action":"SAVE_INTERACTION","data":{"personName":"María López","type":"Llamada","date":"${t}","notes":"Hablamos de la propuesta de inversión"}}
-\`\`\`
-
-Side project: \`\`\`json
-{"action":"SAVE_SIDE_PROJECT","data":{"name":"App de hábitos","description":"Tracker minimalista para hábitos diarios","status":"progress","stack":"React Native","url":"","startDate":"${t}"}}
-\`\`\`
-
 Tarea de proyecto: \`\`\`json
 {"action":"SAVE_SP_TASK","data":{"projectName":"App de hábitos","title":"Diseñar pantalla principal","priority":"alta","dueDate":""}}
-\`\`\`
+\`\`\``;
 
-Hito: \`\`\`json
-{"action":"SAVE_MILESTONE","data":{"projectName":"App de hábitos","title":"MVP funcional listo","date":"${t}","notes":"Primera versión con las 3 pantallas principales"}}
-\`\`\`
-
-Tarea general: \`\`\`json
+const exGeneral=(t)=>`Tarea: \`\`\`json
 {"action":"SAVE_TASK","data":{"title":"Llamar al mecánico","priority":"alta"}}
 \`\`\`
-
 Hábito: \`\`\`json
 {"action":"SAVE_HABIT","data":{"name":"Caminar 30 min","frequency":"daily"}}
 \`\`\`
-
-Presupuesto fijo: \`\`\`json
-{"action":"SAVE_BUDGET","data":{"title":"Netflix","amount":199,"currency":"MXN","dayOfMonth":15}}
-\`\`\`
-
 Nota: \`\`\`json
-{"action":"SAVE_NOTE","data":{"title":"Reunión con cliente — puntos clave","content":"El cliente quiere entrega antes del viernes","tags":["clientes","trabajo"],"area":"Trabajo"}}
+{"action":"SAVE_NOTE","data":{"title":"Reunión — puntos clave","content":"El cliente quiere entrega antes del viernes","tags":["clientes"],"area":"Trabajo"}}
 \`\`\`
-
-Plan completo (solo tras confirmación): \`\`\`json
-{"action":"SAVE_PLAN","data":{
-  "area":"Salud",
-  "objective":{"title":"Bajar 5kg","deadline":"2026-06-01"},
-  "project":{"title":"Plan fitness"},
-  "tasks":[{"title":"Inscribirme al gym","priority":"alta"}],
-  "habits":[{"name":"Ejercicio 30 min","frequency":"daily"}]
-}}
-\`\`\`
-
-Sueño: \`\`\`json
-{"action":"SAVE_SLEEP_LOG","data":{"date":"${t}","bedTime":"23:30","wakeTime":"07:00","hoursSlept":"7.5","quality":4,"interruptions":0,"notes":"Dormí bien"}}
-\`\`\`
-
-Entretenimiento - película vista: \`\`\`json
-{"action":"SAVE_ENTERTAINMENT","data":{"title":"Inception","type":"movie","status":"done","platform":"Netflix","genre":"Ciencia ficción","rating":5,"year":"2010","notes":"Obra maestra de Nolan"}}
-\`\`\`
-
-Entretenimiento - serie por ver: \`\`\`json
-{"action":"SAVE_ENTERTAINMENT","data":{"title":"Breaking Bad","type":"series","status":"want","platform":"Netflix","genre":"Drama","notes":""}}
-\`\`\`
-
-Compra: \`\`\`json
-{"action":"SAVE_SHOPPING_ITEM","data":{"name":"Leche","qty":2,"unit":"L","category":"Lácteos"}}
-\`\`\`
-
-Hábito completado hoy: \`\`\`json
+Hábito completado: \`\`\`json
 {"action":"MARK_HABIT_DONE","data":{"habitName":"Caminar 30 min"}}
 \`\`\`
-
 Tarea completada: \`\`\`json
 {"action":"UPDATE_TASK_STATUS","data":{"taskTitle":"Llamar al mecánico","status":"done"}}
-\`\`\`
+\`\`\``;
 
-Viaje deseado: \`\`\`json
-{"action":"SAVE_TRIP","data":{"destination":"Tokio","country":"Japón","status":"wishlist","emoji":"✈️","notes":"Primavera para los cerezos"}}
-\`\`\`
+// ── Main dynamic prompt builder ──
+const buildPsickePrompt=(data,challenge,userMsg='')=>{
+  const t=today();
+  const intents=detectIntent(userMsg);
 
-Viaje planificado: \`\`\`json
-{"action":"SAVE_TRIP","data":{"destination":"Ciudad de México","country":"México","status":"planned","startDate":"2026-04-15","endDate":"2026-04-20","transport":"✈️ Avión","budget":"5000","emoji":"🏙️","notes":"Visitar a familia"}}
-\`\`\`
+  // Base data — always present
+  const areaNames=(data.areas||[]).map(a=>`${a.icon} ${a.name}`).join(', ');
+  const areaMap=(data.areas||[]).map(a=>`"${a.name}" → "${a.id}"`).join(', ');
+  const objectives=(data.objectives||[]).filter(o=>o.status==='active').map(o=>`• ${o.title}`).join('\n');
+  const tasksPending=(data.tasks||[]).filter(t=>t.status==='todo');
+  const tasksSummary=tasksPending.slice(0,3).map(t=>`• ${t.title.slice(0,30)}${t.deadline?' ('+t.deadline+')':''}`).join('\n');
+  const inboxPending=(data.inbox||[]).filter(i=>!i.processed).length;
+  const habitNames=(data.habits||[]).map(h=>h.name).join(', ');
+  const notesSummary=(data.notes||[]).slice(0,3).map(n=>`• ${n.title.slice(0,30)}`).join('\n');
+  const allTags=[...new Set((data.notes||[]).flatMap(n=>n.tags||[]))].slice(0,6).join(', ')||'(sin tags)';
 
-Gasto de viaje: \`\`\`json
-{"action":"SAVE_TRIP_EXPENSE","data":{"tripDestination":"Tokio","category":"Vuelo","amount":15000,"currency":"MXN","description":"Vuelo redondo","date":"${t}"}}
-\`\`\`
+  // Build dynamic data sections
+  const dataSections=[];
+  if(intents.has('finanzas')) dataSections.push(ctxFinanzas(data,t));
+  if(intents.has('salud'))    dataSections.push(ctxSalud(data,t));
+  if(intents.has('coche'))    dataSections.push(ctxCoche(data));
+  if(intents.has('hogar'))    dataSections.push(ctxHogar(data));
+  if(intents.has('relaciones'))dataSections.push(ctxRelaciones(data));
+  if(intents.has('proyectos'))dataSections.push(ctxProyectos(data));
+  if(intents.has('sueno'))    dataSections.push(ctxSueno(data));
+  if(intents.has('compras'))  dataSections.push(ctxCompras(data));
+  if(intents.has('entretenimiento'))dataSections.push(ctxEntretenimiento(data));
+  if(intents.has('mascotas')) dataSections.push(ctxMascotas(data));
+  if(intents.has('viajes'))   dataSections.push(ctxViajes(data));
+  if(intents.has('libros')||intents.has('desarrollo'))dataSections.push(ctxDesarrollo(data));
+  if(intents.has('farmacia')) dataSections.push(ctxFarmacia(data));
 
-Receta: \`\`\`json
-{"action":"SAVE_RECIPE","data":{"name":"Tacos de pastor","category":"Comida","difficulty":"Media","time":"45","servings":"4","calories":"650","tags":"mexicano,carne","description":"Clásico tacos al pastor","ingredients":["500g carne de cerdo","piña","cebolla","cilantro","tortillas"],"steps":["Marinar la carne 2h","Asar en trompo","Servir con guarniciones"],"favorite":false}}
-\`\`\`
+  // Build dynamic module definitions (PASO III)
+  const moduleDefs=[modGeneral];
+  if(intents.has('finanzas'))  moduleDefs.push(modFinanzas);
+  if(intents.has('salud'))     moduleDefs.push(modSalud);
+  if(intents.has('coche'))     moduleDefs.push(modCoche);
+  if(intents.has('hogar'))     moduleDefs.push(modHogar);
+  if(intents.has('relaciones'))moduleDefs.push(modRelaciones);
+  if(intents.has('proyectos')) moduleDefs.push(modProyectos);
+  if(intents.has('sueno'))     moduleDefs.push(modSueno);
+  if(intents.has('compras'))   moduleDefs.push(modCompras);
+  if(intents.has('entretenimiento'))moduleDefs.push(modEntretenimiento);
+  if(intents.has('mascotas'))  moduleDefs.push(modMascotas);
+  if(intents.has('viajes'))    moduleDefs.push(modViajes);
+  if(intents.has('libros')||intents.has('desarrollo'))moduleDefs.push(modDesarrollo);
+  if(intents.has('farmacia'))  moduleDefs.push(modFarmacia);
+  if(intents.has('nutricion')) moduleDefs.push(modNutricion);
+  if(intents.has('habitos')||intents.has('tareas'))moduleDefs.push(modHabitos);
 
-Apunte educativo: \`\`\`json
-{"action":"SAVE_EDUCATION_NOTE","data":{"subjectName":"JavaScript","title":"Closures explicados","content":"Un closure es una función que recuerda el entorno léxico donde fue creada","tags":"js,funciones","type":"apunte"}}
-\`\`\`
+  // Build relevant examples
+  const examples=[];
+  if(intents.has('finanzas'))  examples.push(exFinanzas(t));
+  if(intents.has('salud'))     examples.push(exSalud(t));
+  if(intents.has('coche'))     examples.push(exCoche(t));
+  if(intents.has('relaciones'))examples.push(exRelaciones(t));
+  if(intents.has('proyectos')) examples.push(exProyectos(t));
+  if(!examples.length)         examples.push(exGeneral(t));
 
-Mascota nueva: \`\`\`json
-{"action":"SAVE_PET","data":{"name":"Luna","type":"🐱 Gato","breed":"Siamés","birthDate":"2022-03-10","weight":"4","color":"crema","notes":"Le encanta dormir en el sillón"}}
-\`\`\`
+  const challengeBlock={
+    capt:`═══ PERFIL: Captura todo antes de que se pierda. Sugiere siempre guardar. Pregunta: "¿Algo más en tu cabeza?"`,
+    prio:`═══ PERFIL: Ayuda a priorizar. Una tarea más importante de hoy. Marcos: Eisenhower, impacto/esfuerzo.`,
+    habit:`═══ PERFIL: Acompaña hábitos. Celebra rachas. Si no completó algo, pregunta sin juicio.`,
+    proj:`═══ PERFIL: Proyectos sin terminar. Siempre pregunta: ¿cuál es el siguiente paso concreto?`,
+    over:`═══ PERFIL: Abrumado. Máximo 2 puntos. Solo lo más urgente. Tono calmado.`,
+  }[challenge]||'';
 
-Vacuna de mascota: \`\`\`json
-{"action":"SAVE_PET_VAC","data":{"petName":"Luna","name":"Antirrábica","date":"${t}","nextDate":"2027-03-10","status":"done","clinic":"VetCare","cost":"450","notes":""}}
-\`\`\`
+  return `Eres Psicke — la IA dentro del Segundo Cerebro del usuario. Directa, empática, humor seco. Tratas de USTED siempre. NUNCA digas "como asistente de IA".
 
-Visita veterinaria (con gasto): \`\`\`json
-{"action":"SAVE_PET_VET","data":{"petName":"Luna","date":"${t}","reason":"Revisión anual","clinic":"VetCare","vet":"Dr. García","diagnosis":"Sana","treatment":"Desparasitación","cost":"850","nextVisit":"2027-03-10","notes":""}}
-\`\`\`
-\`\`\`json
-{"action":"SAVE_TRANSACTION","data":{"type":"egreso","amount":850,"currency":"MXN","category":"Salud","description":"Revisión veterinaria Luna","date":"${t}"}}
-\`\`\`
+HOY: ${t}
 
-Recordatorio coche: \`\`\`json
-{"action":"SAVE_CAR_REMINDER","data":{"title":"Renovar tenencia","dueDate":"2026-12-31","notes":"Hacerlo antes de diciembre"}}
-\`\`\`
+FORMATO OBLIGATORIO DE RESPUESTA:
+Cada respuesta: razonamiento breve interno → respuesta visible (máx 2-3 oraciones) → JSON al final si aplica.
+Si hay múltiples acciones: emite VARIOS bloques \`\`\`json\`\`\` consecutivos, uno por acción.
+JAMÁS confirmes que guardaste algo sin incluir el bloque JSON — si no hay JSON, no se guarda nada.
 
-Libro por leer: \`\`\`json
-{"action":"SAVE_BOOK","data":{"title":"Atomic Habits","author":"James Clear","status":"want","genre":"Desarrollo personal","pages":"320","rating":0,"review":""}}
-\`\`\`
+═══ DATOS BASE ═══
+Áreas: ${areaNames||'Ninguna'}
+Mapa de áreas: ${areaMap||'sin áreas'}
+Objetivos activos:\n${objectives||'(sin objetivos)'}
+Tareas pendientes (${tasksPending.length}):\n${tasksSummary||'(sin tareas)'}
+Notas recientes:\n${notesSummary||'(sin notas)'}
+Tags: ${allTags} · Inbox sin procesar: ${inboxPending} · Hábitos: ${habitNames||'(ninguno)'}
 
-Libro leído: \`\`\`json
-{"action":"SAVE_BOOK","data":{"title":"El Poder del Ahora","author":"Eckhart Tolle","status":"done","genre":"Espiritualidad","pages":"236","rating":5,"review":"Cambió mi perspectiva sobre el presente"}}
-\`\`\`
+${dataSections.join('\n\n')}
 
-Diario: \`\`\`json
-{"action":"SAVE_JOURNAL","data":{"date":"${t}","mood":"😌 Tranquilo","content":"Hoy fue un día productivo, terminé el módulo de finanzas","gratitude":"Salud y tiempo para avanzar en mis proyectos","intention":"Mañana terminar el reporte antes del mediodía"}}
-\`\`\`
+═══ PROTOCOLO DE CLASIFICACIÓN ═══
+PASO I — TIPO:
+  A) Saludo/conversación casual → responder brevemente. NUNCA guardar.
+  B) Consulta → responder con datos. NUNCA guardar.
+  C) Captura → continuar a PASO II
 
-═══ CONSULTAS SOBRE DATOS ═══
-Si el usuario pregunta por gastos, salud, hábitos, proyectos, personas, etc:
-- Responder con números concretos de los datos actuales.
-- Sumar montos cuando sea relevante.
-- Comparar períodos si hay historial.
-- Agrupar por categoría/área cuando ayude.
+PASO II — ÁREA: ¿A qué área pertenece? Áreas: ${areaNames||'ninguna'}
 
-⚠️ REGLA ABSOLUTA FINAL — LEE ESTO ANTES DE CADA RESPUESTA:
-Si el usuario menciona algo que debe guardarse en la app (un gasto, tarea, hábito, mantenimiento, persona, workout, etc.), DEBES incluir el bloque \`\`\`json con la acción correspondiente.
-NO basta con decir "lo guardé" o "registrado". Si no hay bloque JSON en tu respuesta, la acción NO se ejecuta en el sistema y el dato se pierde.
-Decirle al usuario que guardaste algo sin haber emitido el JSON es mentirle. Nunca lo hagas.
-Ante la duda, emite el JSON. Es mejor emitir uno de más que olvidar uno.
+PASO III — MÓDULO:
+${moduleDefs.join('\n')}
 
-${{
-  capt:  `═══ PERFIL DEL USUARIO: CAPTURA ═══
-El usuario eligió "Olvido cosas importantes" como su mayor desafío.
-PRIORIDAD DE ENFOQUE: Ayudarle a capturar todo lo que tiene en la mente antes de que se pierda.
-- Cuando hable contigo, sugiere SIEMPRE guardar la idea/tarea/nota si no lo hizo aún.
-- En el resumen diario, destaca primero el inbox pendiente y los recordatorios.
-- Si menciona algo vagamente (ej. "tengo que llamar a alguien"), pregunta si quieres capturarlo.
-- Sugiere activamente el hábito de capture diaria. Frases como: "¿Hay algo más en tu cabeza que deba quedar registrado?"`,
+PASO IV — CAMPOS:
+  Regla absoluta: UN REGISTRO INCOMPLETO ES UN FRACASO.
+  Si faltan campos clave, pregúntalos TODOS juntos en un mensaje.
+  Montos: siempre amount + currency. Fechas: YYYY-MM-DD. Horas: HH:MM.
 
-  prio:  `═══ PERFIL DEL USUARIO: PRIORIZACIÓN ═══
-El usuario eligió "No sé qué priorizar" como su mayor desafío.
-PRIORIDAD DE ENFOQUE: Ayudarle a tomar decisiones claras sobre qué hace primero.
-- En cada interacción, si hay múltiples tareas, ayúdale a identificar la de mayor impacto.
-- En el resumen diario, empieza por "La tarea más importante de hoy es X porque..."
-- Usa marcos como Eisenhower o simplemente pregunta: "¿Qué mueve más la aguja hoy?"
-- Si añade tareas nuevas, pregunta a qué objetivo sirve para darle contexto de prioridad.`,
+PASO V — RESPONDER:
+  [Si faltan campos: pregunta todo lo que falta agrupado]
+  [Si tienes todo: confirma brevemente y emite el JSON]
 
-  habit: `═══ PERFIL DEL USUARIO: HÁBITOS ═══
-El usuario eligió "Mis hábitos no duran" como su mayor desafío.
-PRIORIDAD DE ENFOQUE: Acompañarle en construir consistencia, no motivación instantánea.
-- En el resumen diario, empieza siempre con el estado de sus hábitos del día.
-- Celebra rachas aunque sean pequeñas. Si lleva 3 días seguidos, menciónalo.
-- Si no completó un hábito ayer, no lo ignores — pregunta qué pasó, sin juicio.
-- Sugiere hábitos pequeños y específicos. Prefiere "caminar 10 min" sobre "hacer ejercicio".`,
+═══ FORMATOS DE GUARDADO ═══
+${examples.join('\n')}
 
-  proj:  `═══ PERFIL DEL USUARIO: PROYECTOS ═══
-El usuario eligió "Proyectos sin terminar" como su mayor desafío.
-PRIORIDAD DE ENFOQUE: Ayudarle a avanzar con siguiente acción concreta, no con motivación.
-- En el resumen diario, destaca qué proyectos tienen tareas vencidas o sin next action.
-- Cuando hable de un proyecto, siempre pregunta: "¿Cuál es el siguiente paso concreto?"
-- Si hay muchos proyectos activos, ayúdale a decidir cuál pausar para enfocarse.
-- Evita planes largos; prefiere 1 acción específica que pueda hacer hoy.`,
+⚠️ REGLA FINAL: Si el usuario menciona algo que debe guardarse, DEBES incluir el JSON. Sin JSON = dato perdido = mentirle al usuario.
 
-  over:  `═══ PERFIL DEL USUARIO: ABRUMADO ═══
-El usuario eligió "Me siento abrumado" como su mayor desafío.
-PRIORIDAD DE ENFOQUE: Simplicidad radical. Menos información, más claridad.
-- En el resumen diario: máximo 2 puntos. Solo lo más urgente. Nunca listas largas.
-- No abrumes con opciones. Si hay 10 tareas, dile solo cuál hacer primero.
-- Usa un tono especialmente calmado y empático. Valida antes de sugerir.
-- Si parece estresado, antes de dar info pregunta: "¿Qué es lo que más te preocupa ahora mismo?"`,
-}[challenge]||''}`;
+${challengeBlock}`;
 };
+
 
 const parsePsickeAction=(text)=>{
   // Multi-action: collect ALL ```json blocks
@@ -917,29 +398,57 @@ const parsePsickeAction=(text)=>{
   }
   return actions.length>0?actions:null;
 };
-// Extracts DeepSeek R1 <think> blocks and returns { thinking, text }
-const extractThinking=(raw)=>{
-  // DeepSeek R1 wraps its reasoning in <think>...</think>
-  const thinkMatch=raw.match(/<think>([\s\S]*?)<\/think>/i);
-  const thinking=thinkMatch?thinkMatch[1].trim():null;
-  // Remove the think block from the display text
-  let text=raw.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
-  // Strip JSON action blocks from display
-  text=text.replace(/```json[\s\S]*?```/g,'').trim();
-  return {thinking, text};
-};
-
 const stripPsickeJson=(text)=>{
-  // Legacy cleanup for non-DeepSeek models (fallback)
+  // 1. Strip <pensamiento> blocks (ideal case when Gemini follows instructions)
   let out=text.replace(/<pensamiento>[\s\S]*?<\/pensamiento>/gi,'');
+
+  // 2. Fallback: Gemini sometimes writes reasoning as plain text using PASO/ETAPA labels.
+  //    Detect the pattern and keep only what comes after the last reasoning label block.
+  //    Strategy: find the last occurrence of a reasoning marker line, discard everything before it.
+  const reasoningMarkers=[
+    /^PASO\s+[IVX\d]+\s*[—\-]/m,
+    /^ETAPA\s+[A-D]\s*[—\-]/m,
+    /^TIPO DE ENTRADA:/m,
+    /^NIVEL JERÁRQUICO:/m,
+    /^ÁRBOL DE DECISIÓN:/m,
+    /^\[PASO/m,
+    /^\[ETAPA/m,
+  ];
+  // Also strip any [PASO...] bracket blocks entirely
   out=out.replace(/\[PASO[\s\S]*?\]/g,'').replace(/\[ETAPA[\s\S]*?\]/g,'');
+  // Find the last line that looks like a reasoning header
+  const lines=out.split('\n');
+  let lastReasoningLine=-1;
+  lines.forEach((line,i)=>{
+    if(reasoningMarkers.some(r=>r.test(line))) lastReasoningLine=i;
+  });
+  if(lastReasoningLine>=0){
+    // Find the next non-empty line after the block that doesn't start with a reasoning pattern
+    let cutAt=-1;
+    for(let i=lastReasoningLine+1;i<lines.length;i++){
+      const l=lines[i].trim();
+      if(!l) continue;
+      // If this line itself looks like reasoning, skip it and its content
+      if(reasoningMarkers.some(r=>r.test(l))) continue;
+      // Check it's not a sub-item of reasoning (starts with arrow, dash+space reasoning keyword)
+      if(/^[→\-]\s*(PASO|ETAPA|Nivel:|Acción:|SÍ|NO\s)/.test(l)) continue;
+      cutAt=i;
+      break;
+    }
+    if(cutAt>=0) out=lines.slice(cutAt).join('\n');
+  }
+
+  // 3. Strip common reasoning leaks
   out=out.replace(/^No hay(?:acción|\s+acción)[^\n]*/gim,'');
   out=out.replace(/^Acción:\s*ninguna[^\n]*/gim,'');
   out=out.replace(/^Módulo:[^\n]*/gim,'');
   out=out.replace(/^Tipo de entrada:[^\n]*/gim,'');
   out=out.replace(/^Área relevante:[^\n]*/gim,'');
   out=out.replace(/^Acción a ejecutar:[^\n]*/gim,'');
+
+  // 4. Strip JSON blocks
   out=out.replace(/```json[\s\S]*?```/g,'');
+
   return out.trim();
 };
 
@@ -986,7 +495,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   const [editVal,setEditVal]=useState('');
   const [copied,setCopied]=useState(null);
   const [slashMenu,setSlashMenu]=useState(false);
-  const [expandedThinking,setExpandedThinking]=useState({});
   const bottomRef=useRef(null);
   const recRef=useRef(null);
   const inputRef=useRef(null);
@@ -1132,13 +640,13 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     const next=[...msgs,userMsg];
     saveMsgs(next);setInput('');setLoading(true);
     try{
-      const sysPrompt=buildPsickePrompt(data,challenge);
+      const sysPrompt=buildPsickePrompt(data,challenge,text);
       // Clean conversation for API: strip save labels, keep last 8 msgs (OpenAI format)
       const cleanMsgs=next.slice(-4).map(m=>({
         role:m.role==='assistant'?'assistant':'user',
         content:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '
       }));
-      const baseBody={
+      const body={
         model: GROQ_MODELS[0], // overridden per callApi
         messages:[
           {role:'system', content:sysPrompt},
@@ -1146,23 +654,18 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           {role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?'},
           ...cleanMsgs
         ],
-        temperature:0.6,
-        max_tokens:1200,
+        temperature:0.7,
+        max_tokens:800,
       };
-      const REASONING_MODELS=['qwen/qwen3-32b'];
 
       // API call with model fallback + retry on 429
       const callApi=async(modelIdx=0, attempt=0)=>{
         const model = GROQ_MODELS[modelIdx] || GROQ_MODELS[0];
-        const isReasoning=REASONING_MODELS.includes(model);
-        const body=isReasoning
-          ?{...baseBody, model, reasoning_format:'parsed'}
-          :{...baseBody, model};
         const res=await fetch(
           'https://api.groq.com/openai/v1/chat/completions',
           {method:'POST',
            headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-           body:JSON.stringify(body)}
+           body:JSON.stringify({...body, model})}
         );
         if(res.status===429){
           const err=await res.json().catch(()=>({}));
@@ -1208,17 +711,9 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         throw new Error(`Sin respuesta (${reason})`);
       }
 
-      // With reasoning_format:'parsed', Groq returns thinking in a separate field
-      // For fallback models (no reasoning), this will be null/undefined
-      const parsedThinking=d.choices?.[0]?.message?.reasoning||null;
-      // Also try extracting <think> tags as fallback (for raw format models)
-      const {thinking: tagThinking, text: rawNoTags}=extractThinking(raw);
-      const thinking=parsedThinking||tagThinking||null;
-      const cleanedRaw=parsedThinking?raw:rawNoTags;
-
       // Parse and execute ALL save actions present
       const actions=parsePsickeAction(raw);
-      const display=stripPsickeJson(cleanedRaw);
+      const display=stripPsickeJson(raw);
       const savedLabels=[];
 
       if(actions&&setData){
@@ -1771,7 +1266,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         setData(d=>({...d,...delta}));
       }
       const finalContent=display+(savedLabels.length?'\n\n✅ '+savedLabels.join('\n✅ '):'');
-      saveMsgs([...next,{role:'assistant',content:finalContent,thinking:thinking||null,time:nowTime()}]);
+      saveMsgs([...next,{role:'assistant',content:finalContent,time:nowTime()}]);
     }catch(e){
       const msg=e.message==='Failed to fetch'
         ?'No se pudo conectar. Verifica su conexión o que la API key sea válida.'
@@ -1800,8 +1295,6 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         @keyframes psicke-ring{0%{opacity:0.6;transform:scale(1)}100%{opacity:0;transform:scale(1.8)}}
         @keyframes pop-in{from{opacity:0;transform:scale(.93) translateY(5px)}to{opacity:1;transform:scale(1) translateY(0)}}
         @keyframes psicke-dot{0%,100%{opacity:.25;transform:scale(.65)}50%{opacity:1;transform:scale(1)}}
-        @keyframes thinking-in{from{opacity:0;max-height:0}to{opacity:1;max-height:2000px}}
-        .psicke-thinking-body{animation:thinking-in 0.25s ease-out both;overflow:hidden;}
         .psicke-bubble:active{transform:scale(0.93)!important;}
         .psicke-msg{animation:pop-in 0.2s cubic-bezier(.22,1,.36,1) both;}
       `}</style>
@@ -1918,69 +1411,22 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                           </div>
                         </div>
                       ):(
-                        <div style={{display:'flex',flexDirection:'column',gap:3,maxWidth:'75%'}}>
-
-                          {/* ── DeepSeek R1 Thinking Block ── */}
-                          {!isUser&&m.thinking&&(
-                            <div style={{display:'flex',flexDirection:'column',gap:0}}>
-                              <button
-                                onClick={()=>setExpandedThinking(s=>({...s,[i]:!s[i]}))}
-                                style={{
-                                  display:'flex',alignItems:'center',gap:6,
-                                  background:'none',border:'none',cursor:'pointer',
-                                  padding:'2px 0 4px',fontFamily:'inherit',
-                                  color:T.muted,fontSize:11,fontWeight:700,
-                                  letterSpacing:0.6,textTransform:'uppercase',
-                                  opacity:0.8,transition:'opacity 0.15s',
-                                  alignSelf:'flex-start',
-                                }}
-                                onMouseEnter={e=>e.currentTarget.style.opacity=1}
-                                onMouseLeave={e=>e.currentTarget.style.opacity=0.8}>
-                                <span style={{
-                                  fontSize:13,
-                                  transform:expandedThinking[i]?'rotate(0deg)':'rotate(-90deg)',
-                                  transition:'transform 0.2s',display:'inline-block'
-                                }}>▾</span>
-                                <span style={{
-                                  background:`linear-gradient(90deg,${T.accent},${T.orange})`,
-                                  WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
-                                }}>Razonamiento</span>
-                              </button>
-                              {expandedThinking[i]&&(
-                                <div className="psicke-thinking-body" style={{
-                                  background:`linear-gradient(135deg,${T.accent}09,${T.orange}06)`,
-                                  border:`1px solid ${T.accent}22`,
-                                  borderLeft:`3px solid ${T.accent}55`,
-                                  borderRadius:'4px 12px 12px 4px',
-                                  padding:'10px 14px',
-                                  fontSize:12.5,lineHeight:1.7,
-                                  color:T.muted,whiteSpace:'pre-wrap',wordBreak:'break-word',
-                                  fontStyle:'italic',
-                                  marginBottom:4,
-                                }}>
-                                  {m.thinking}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <div
-                            onClick={e=>{if(isUser){e.stopPropagation();setMsgMenu(showMenu?null:i);}}}
-                            style={{
-                              minWidth:64,
-                              padding:'10px 14px',
-                              borderRadius:isUser
-                                ?(prevSameRole?'18px 4px 4px 18px':'18px 18px 4px 18px')
-                                :(prevSameRole?'4px 18px 18px 4px':'4px 18px 18px 4px'),
-                              fontSize:14.5,lineHeight:1.65,whiteSpace:'pre-wrap',wordBreak:'break-word',
-                              background:isUser?`linear-gradient(135deg,#1b4fa0,#133b82)`:'#eef1f6',
-                              color:isUser?'#fff':'#1c2333',
-                              boxShadow:isUser?`0 2px 12px rgba(27,79,160,.3)`:`0 1px 3px rgba(0,0,0,.07)`,
-                              cursor:isUser?'pointer':'default',
-                              transition:'opacity 0.15s',
-                              opacity:isUser&&showMenu?0.8:1}}>
-                            <span dangerouslySetInnerHTML={{__html:renderMd(m.content||'')}}/>
-                          </div>
+                        <div
+                          onClick={e=>{if(isUser){e.stopPropagation();setMsgMenu(showMenu?null:i);}}}
+                          style={{
+                            maxWidth:'75%',minWidth:64,
+                            padding:'10px 14px',
+                            borderRadius:isUser
+                              ?(prevSameRole?'18px 4px 4px 18px':'18px 18px 4px 18px')
+                              :(prevSameRole?'4px 18px 18px 4px':'4px 18px 18px 4px'),
+                            fontSize:14.5,lineHeight:1.65,whiteSpace:'pre-wrap',wordBreak:'break-word',
+                            background:isUser?`linear-gradient(135deg,#1b4fa0,#133b82)`:'#eef1f6',
+                            color:isUser?'#fff':'#1c2333',
+                            boxShadow:isUser?`0 2px 12px rgba(27,79,160,.3)`:`0 1px 3px rgba(0,0,0,.07)`,
+                            cursor:isUser?'pointer':'default',
+                            transition:'opacity 0.15s',
+                            opacity:isUser&&showMenu?0.8:1}}>
+                          <span dangerouslySetInnerHTML={{__html:renderMd(m.content||'')}}/>
                         </div>
                       )}
                     </div>
