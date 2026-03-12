@@ -8,8 +8,22 @@ Construido con React 18 + Vite + PWA. Desplegado en [o-two.vercel.app](https://o
 - **React 18** — UI con hooks, lazy loading y Suspense
 - **Vite 5** — Build ultrarrápido con code splitting automático
 - **vite-plugin-pwa** — PWA instalable con Workbox (offline-ready)
-- **IA:** Gemini 2.5 Flash (via Google AI Studio API)
+- **IA:** Claude Haiku 4.5 (Anthropic) — principal · Gemini 2.0 Flash · Groq LLaMA 3.1 (fallbacks)
 - **Storage:** localStorage (primario) + window.storage (fallback)
+
+---
+
+## Proveedores de IA
+
+Psicke usa un sistema de fallback automático en este orden de prioridad:
+
+| Prioridad | Proveedor | Modelo | Dónde obtener key |
+|-----------|-----------|--------|-------------------|
+| 1 — Principal | **Anthropic** | `claude-haiku-4-5-20251001` | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
+| 2 — Fallback | **Gemini** | `gemini-2.0-flash` | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| 3 — Fallback | **Groq** | `llama-3.1-8b-instant` | [console.groq.com](https://console.groq.com/keys) |
+
+Configurar en **Ajustes → IA** dentro de la app. Si el proveedor principal falla por cuota o error, Psicke pasa al siguiente automáticamente.
 
 ---
 
@@ -19,7 +33,7 @@ Construido con React 18 + Vite + PWA. Desplegado en [o-two.vercel.app](https://o
 | Módulo | Descripción |
 |--------|-------------|
 | **Dashboard** | Panel de control diario — KPIs, tareas de hoy, hábitos, captura rápida, Pomodoro integrado |
-| **Psicke** | Asistente IA (Gemini) — guarda datos con acciones JSON, roadmap SMART, historial persistente |
+| **Psicke** | Asistente IA (Claude) — guarda datos con acciones JSON, roadmap SMART, historial persistente |
 | **Inbox** | Bandeja de entrada rápida — captura sin fricciones |
 | **GlobalSearch** | Búsqueda global (Cmd+K) entre todos los módulos |
 
@@ -41,7 +55,7 @@ Construido con React 18 + Vite + PWA. Desplegado en [o-two.vercel.app](https://o
 ### ❤️ Salud
 | Módulo | Descripción |
 |--------|-------------|
-| **Health** | Métricas (peso, sueño, energía, pasos), workouts, medicamentos, metas. Nuevo tab **🩺 Médico**: historial de visitas por especialista, analíticas y documentos médicos |
+| **Health** | Métricas (peso, sueño, energía, pasos), workouts, medicamentos, metas. Tab **🩺 Médico**: historial de visitas por especialista, analíticas y documentos médicos |
 | **Nutrición** | Menú semanal (4 comidas/día), recetario con ingredientes/pasos/calorías, sincronización con lista de compras |
 | **Sueño** | Registro diario (horas, calidad, interrupciones), gráfica 14 noches vs. meta, checklist de higiene del sueño, diario de sueños |
 
@@ -73,7 +87,7 @@ Construido con React 18 + Vite + PWA. Desplegado en [o-two.vercel.app](https://o
 ### 📔 Personal
 | Módulo | Descripción |
 |--------|-------------|
-| **Journal** | Diario personal con estados de ánimo, gratitud e intención. Nuevo tab **⭐ Momentos Inolvidables**: guarda recuerdos por categoría, con personas y tags |
+| **Journal** | Diario personal con estados de ánimo, gratitud e intención. Tab **⭐ Momentos Inolvidables**: guarda recuerdos por categoría, con personas y tags |
 
 ---
 
@@ -87,7 +101,6 @@ Construido con React 18 + Vite + PWA. Desplegado en [o-two.vercel.app](https://o
 - **Tema oscuro/claro** — toggle en header
 - **Backup/restore** — exportar e importar JSON desde Ajustes
 - **Revisión semanal** — modo guiado en Ajustes
-- **Tutorial integrado** — objetivo con 8 tareas que guían al usuario nuevo
 
 ---
 
@@ -105,14 +118,16 @@ src/
 │   ├── helpers.js               # uid(), today(), fmt()
 │   └── notifications.js         # Push notifications via SW
 ├── context/
-│   └── initialData.js           # Estado inicial de todos los módulos
+│   └── initialData.js           # Estado inicial vacío (sin datos de ejemplo)
+├── config/
+│   └── aiProviders.js           # Proveedores IA: Anthropic · Gemini · Groq + fallback automático
 ├── components/
 │   ├── ui/index.jsx             # Modal, Input, Btn, Card, Select, Tag…
 │   ├── charts/index.jsx         # Ring, Sparkline, HeatMap, BarChart…
 │   └── icons/Icon.jsx           # SVG inline (brain, car, paw, plane, fork, moon…)
 └── modules/
     ├── Dashboard.jsx            # Panel de control + Pomodoro
-    ├── Psicke.jsx               # Asistente IA Gemini
+    ├── Psicke.jsx               # Asistente IA (Claude principal)
     ├── Objectives.jsx           # Objetivos SMART (wizard 4 pasos)
     ├── HabitTracker.jsx         # Hábitos + Desafío 21 días
     ├── Journal.jsx              # Diario + Momentos Inolvidables
@@ -134,7 +149,6 @@ src/
     ├── Education.jsx
     ├── Settings.jsx
     ├── GlobalSearch.jsx
-    ├── Onboarding.jsx
     ├── Toast.jsx
     ├── AppLoader.jsx
     ├── ErrorBoundary.jsx
@@ -163,11 +177,6 @@ npm run preview
 
 **Vercel:** conectar repo → Framework: Vite → Build: `npm run build` → Output: `dist`
 
-## API Key de Gemini
-
-Obtener gratis en https://aistudio.google.com/apikey  
-Configurar en **Ajustes → IA** dentro de la app.
-
 ---
 
 ## Claves de localStorage utilizadas
@@ -178,4 +187,7 @@ Configurar en **Ajustes → IA** dentro de la app.
 | `sb_onboarding_done` | Flag de onboarding completado |
 | `sb_challenge` | Perfil de desafío activo del Dashboard |
 | `psicke_msgs` | Historial de conversación con Psicke |
+| `sb_ai_key_anthropic` | API Key de Anthropic (Claude) |
+| `sb_ai_key_gemini` | API Key de Gemini |
+| `sb_ai_key_groq` | API Key de Groq |
 | Claves de datos | `tasks`, `habits`, `objectives`, `journal`, `moments`, `habitChallenges`, `medicalVisits`, `medicalDocs`, `recipes`, `weekMenus`, `sleepLog`, `dreamJournal`, `entertainment`, `pets`, `trips`, etc. |
