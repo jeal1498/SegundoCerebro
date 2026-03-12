@@ -5,19 +5,57 @@ import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
-
-// ===================== GEMINI CONFIG =====================
-const GROQ_MODEL='llama-3.3-70b-versatile';
-
+import { PROVIDERS, getProviderKey, setProviderKey } from '../config/aiProviders.js';
 
 // ===================== SETTINGS =====================
-const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint,onOpenPsicke,onInstall,isInstalled}) => {
-  const [val,setVal]=useState(apiKey);
-  const [show,setShow]=useState(false);
-  const [saved,setSaved]=useState(false);
-  const [testing,setTesting]=useState(false);
-  const [testResult,setTestResult]=useState(null);
-  const [testMsg,setTestMsg]=useState('');
+const Settings = ({isMobile,data,setData,viewHint,onConsumeHint,onOpenPsicke,onInstall,isInstalled}) => {
+  // Per-provider key state: { gemini: { val, show, saved, testing, testResult, testMsg }, ... }
+  const [providerState, setProviderState] = useState(() =>
+    Object.fromEntries(PROVIDERS.map(p => [p.id, {
+      val: getProviderKey(p.id),
+      show: false, saved: false, testing: false, testResult: null, testMsg: '',
+    }]))
+  );
+  const updProvider = (id, patch) =>
+    setProviderState(s => ({ ...s, [id]: { ...s[id], ...patch } }));
+
+  const handleSave = (providerId) => {
+    const k = providerState[providerId].val.trim();
+    setProviderKey(providerId, k);
+    updProvider(providerId, { saved: true });
+    setTimeout(() => updProvider(providerId, { saved: false }), 2500);
+    toast.success('API Key guardada');
+  };
+  const handleClear = (providerId) => {
+    setProviderKey(providerId, '');
+    updProvider(providerId, { val: '', testResult: null, testMsg: '' });
+    toast.info('API Key eliminada');
+  };
+  const testKey = async (provider) => {
+    const k = providerState[provider.id].val.trim();
+    if (!k) { updProvider(provider.id, { testResult: 'error', testMsg: 'Ingresa una API Key primero.' }); return; }
+    updProvider(provider.id, { testing: true, testResult: null, testMsg: '' });
+    try {
+      const { url, headers, body } = provider.buildRequest(
+        [{ role: 'user', content: 'Di hola.' }], 'Responde brevemente.', k
+      );
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ ...body, max_tokens: 10, maxOutputTokens: 10 }) });
+      if (res.ok) {
+        updProvider(provider.id, { testResult: 'ok', testMsg: `✅ ${provider.label} — clave válida y funcionando.`, saved: true });
+        setProviderKey(provider.id, k);
+        setTimeout(() => updProvider(provider.id, { saved: false }), 2500);
+      } else if (res.status === 401 || res.status === 403) {
+        updProvider(provider.id, { testResult: 'error', testMsg: `❌ API Key inválida. Revísala en ${provider.docsLabel}.` });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        updProvider(provider.id, { testResult: 'error', testMsg: '❌ ' + (err?.error?.message || `Error HTTP ${res.status}`) });
+      }
+    } catch (e) {
+      updProvider(provider.id, { testResult: 'error', testMsg: '❌ Error de red: ' + e.message });
+    }
+    updProvider(provider.id, { testing: false });
+  };
+
   const [sTab,setSTab]=useState('ia');
   const [reviewStep,setReviewStep]=useState(0);
   const [notifEnabled,setNotifEnabled]=useState(()=>{try{return localStorage.getItem('sb_notifs')==='true';}catch{return false;}});
@@ -30,46 +68,6 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
     if(viewHint==='revision'){setSTab('revision');setReviewStep(0);onConsumeHint?.();}
   },[viewHint]);
 
-  const handleSave=()=>{
-    const k=val.trim();
-    localStorage.setItem('sb_gemini_key',k);
-    setApiKey(k);setSaved(true);
-    setTimeout(()=>setSaved(false),2500);
-    toast.success('API Key guardada');
-  };
-  const handleClear=()=>{setVal('');setApiKey('');localStorage.removeItem('sb_gemini_key');setTestResult(null);toast.info('API Key eliminada');};
-
-  const testKey=async()=>{
-    const k=val.trim();
-    if(!k){setTestResult('error');setTestMsg('Ingresa una API Key primero.');return;}
-    setTesting(true);setTestResult(null);setTestMsg('');
-    try{
-      const res=await fetch(
-        'https://api.groq.com/openai/v1/chat/completions',
-        {method:'POST',
-         headers:{'Content-Type':'application/json','Authorization':`Bearer ${k}`},
-         body:JSON.stringify({model:GROQ_MODEL,messages:[{role:'user',content:'Di hola.'}],max_tokens:10})}
-      );
-      if(res.ok){
-        setTestResult('ok');
-        setTestMsg('✅ API Key de Groq válida y funcionando correctamente.');
-        localStorage.setItem('sb_gemini_key',k);
-        setApiKey(k);setSaved(true);
-        setTimeout(()=>setSaved(false),2500);
-      } else if(res.status===401){
-        setTestResult('error');
-        setTestMsg('❌ API Key inválida. Ve a console.groq.com → API Keys y copia la clave completa.');
-      } else {
-        const err=await res.json().catch(()=>({}));
-        setTestResult('error');
-        setTestMsg('❌ '+(err?.error?.message||`Error HTTP ${res.status}`));
-      }
-    }catch(e){
-      setTestResult('error');
-      setTestMsg('❌ Error de red: '+e.message);
-    }
-    setTesting(false);
-  };
 
   // ── BACKUP ──
   const exportData=()=>{
@@ -248,81 +246,66 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
       {/* ── IA ── */}
       {sTab==='ia'&&(
         <>
-          <Card style={{marginBottom:16}}>
-            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
-              <div style={{width:40,height:40,background:`${T.accent}22`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <Icon name="key" size={20} color={T.accent}/>
-              </div>
-              <div>
-                <div style={{color:T.text,fontWeight:600,fontSize:15}}>Groq API Key</div>
-                <div style={{color:T.muted,fontSize:12,marginTop:2}}>Necesaria para el asistente IA · <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{color:T.accent,textDecoration:"none"}}>Obtener gratis ↗</a></div>
-              </div>
-              <div style={{marginLeft:'auto',width:10,height:10,borderRadius:'50%',background:apiKey?T.green:T.dim}}/>
-            </div>
-            {/* form real → Chrome en Android detecta el campo y ofrece guardar la contraseña */}
-            <form
-              action="#"
-              onSubmit={e=>{e.preventDefault();handleSave();}}
-              style={{marginBottom:0}}
-            >
-              {/* Campo usuario oculto — Chrome lo necesita para asociar a qué cuenta pertenece */}
-              <input
-                type="text"
-                name="username"
-                autoComplete="username"
-                defaultValue="segundo-cerebro-api"
-                style={{position:'absolute',opacity:0,pointerEvents:'none',width:1,height:1,overflow:'hidden'}}
-                aria-hidden="true"
-                tabIndex={-1}
-              />
-              <div style={{position:'relative',marginBottom:12}}>
-                <input
-                  type={show?'text':'password'}
-                  name="password"
-                  autoComplete={apiKey?'current-password':'new-password'}
-                  value={val}
-                  onChange={e=>setVal(e.target.value)}
-                  placeholder="gsk_..."
-                  style={{width:'100%',background:T.bg,border:`1px solid ${T.border}`,color:T.text,padding:'10px 60px 10px 14px',borderRadius:10,fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}
-                />
-                <button
-                  type="button"
-                  onClick={()=>setShow(s=>!s)}
-                  style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:T.muted,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}
-                >
-                  {show?'Ocultar':'Ver'}
-                </button>
-              </div>
-              <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                <div style={{display:'flex',gap:8}}>
-                  <Btn type="submit" style={{flex:1,justifyContent:'center'}}>
-                    {saved?<><Icon name="checkCircle" size={15}/>Guardada</>:<><Icon name="key" size={15}/>Guardar</>}
-                  </Btn>
-                  <Btn type="button" variant="ghost" onClick={testKey} disabled={testing} style={{flex:1,justifyContent:'center'}}>
-                    {testing?'Probando…':'🔍 Probar'}
-                  </Btn>
-                </div>
-                {testResult&&(
-                  <div style={{fontSize:12,color:testResult==='ok'?T.green:T.red,background:testResult==='ok'?`${T.green}11`:`${T.red}11`,border:`1px solid ${testResult==='ok'?T.green:T.red}33`,borderRadius:8,padding:'8px 12px',lineHeight:1.5}}>
-                    {testMsg}
+          <div style={{color:T.muted,fontSize:12,marginBottom:14,lineHeight:1.6,padding:'0 2px'}}>
+            Los proveedores se usan <strong style={{color:T.text}}>en orden</strong>. Si el primero agota su cuota, Psicke pasa automáticamente al siguiente.
+          </div>
+          {PROVIDERS.map((provider, idx) => {
+            const ps = providerState[provider.id];
+            const hasKey = !!getProviderKey(provider.id);
+            return (
+              <Card key={provider.id} style={{marginBottom:12}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+                  <div style={{width:32,height:32,background:`${provider.color}22`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,color:provider.color,flexShrink:0}}>
+                    {idx+1}
                   </div>
-                )}
-                {apiKey&&<Btn variant="danger" type="button" onClick={handleClear} size="md" style={{alignSelf:'flex-start'}}>Limpiar key</Btn>}
-              </div>
-            </form>
-          </Card>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:T.text,fontWeight:600,fontSize:14}}>{provider.label}</div>
+                    <a href={provider.docsUrl} target="_blank" rel="noreferrer" style={{color:T.accent,fontSize:11,textDecoration:'none'}}>
+                      Obtener key gratis — {provider.docsLabel}
+                    </a>
+                  </div>
+                  <div style={{width:8,height:8,borderRadius:'50%',background:hasKey?T.green:T.dim,flexShrink:0}}/>
+                </div>
+                <form action="#" onSubmit={e=>{e.preventDefault();handleSave(provider.id);}} style={{marginBottom:0}}>
+                  <input type="text" name="username" autoComplete="username" defaultValue={`sb-${provider.id}`}
+                    style={{position:'absolute',opacity:0,pointerEvents:'none',width:1,height:1}} aria-hidden="true" tabIndex={-1}/>
+                  <div style={{position:'relative',marginBottom:10}}>
+                    <input
+                      type={ps.show?'text':'password'}
+                      name="password"
+                      autoComplete={hasKey?'current-password':'new-password'}
+                      value={ps.val}
+                      onChange={e=>updProvider(provider.id,{val:e.target.value})}
+                      placeholder={provider.placeholder}
+                      style={{width:'100%',background:T.bg,border:`1px solid ${T.border}`,color:T.text,padding:'9px 60px 9px 12px',borderRadius:8,fontSize:13,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}
+                    />
+                    <button type="button" onClick={()=>updProvider(provider.id,{show:!ps.show})}
+                      style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:T.muted,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
+                      {ps.show?'Ocultar':'Ver'}
+                    </button>
+                  </div>
+                  <div style={{display:'flex',gap:8}}>
+                    <Btn type="submit" size="sm" style={{flex:1,justifyContent:'center'}}>
+                      {ps.saved?<><Icon name="checkCircle" size={13}/>Guardada</>:<><Icon name="key" size={13}/>Guardar</>}
+                    </Btn>
+                    <Btn type="button" variant="ghost" size="sm" onClick={()=>testKey(provider)} disabled={ps.testing} style={{flex:1,justifyContent:'center'}}>
+                      {ps.testing?'Probando…':'🔍 Probar'}
+                    </Btn>
+                    {hasKey&&<Btn variant="danger" type="button" size="sm" onClick={()=>handleClear(provider.id)}>Borrar</Btn>}
+                  </div>
+                  {ps.testResult&&(
+                    <div style={{marginTop:8,fontSize:12,color:ps.testResult==='ok'?T.green:T.red,background:ps.testResult==='ok'?`${T.green}11`:`${T.red}11`,border:`1px solid ${ps.testResult==='ok'?T.green:T.red}33`,borderRadius:8,padding:'7px 10px',lineHeight:1.5}}>
+                      {ps.testMsg}
+                    </div>
+                  )}
+                </form>
+              </Card>
+            );
+          })}
           <Card>
-            <div style={{color:T.muted,fontSize:13,lineHeight:1.7}}>
-              <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:10}}>¿Cómo obtener la API Key?</div>
-              <ol style={{margin:0,paddingLeft:18,display:'flex',flexDirection:'column',gap:6}}>
-                <li>Ve a <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:T.accent}}>aistudio.google.com</a></li>
-                <li>Inicia sesión con tu cuenta de Google</li>
-                <li>Haz clic en "Create API Key"</li>
-                <li>Copia la clave y pégala arriba</li>
-              </ol>
-              <div style={{marginTop:12,padding:'10px 14px',background:`${T.green}12`,borderRadius:8,borderLeft:`3px solid ${T.green}`,fontSize:12}}>
-                ✓ El plan gratuito de Gemini es suficiente para uso personal intensivo.
-              </div>
+            <div style={{color:T.muted,fontSize:12,lineHeight:1.7}}>
+              <div style={{color:T.text,fontWeight:600,fontSize:13,marginBottom:8}}>💡 Recomendación de inicio</div>
+              Configura primero <strong style={{color:T.text}}>Gemini</strong> — tier gratuito generoso, sin tarjeta. Si se acaba la cuota diaria, Psicke usa el siguiente proveedor automáticamente.
             </div>
           </Card>
         </>

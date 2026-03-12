@@ -5,6 +5,7 @@ import { uid, today, fmt } from '../utils/helpers.js';
 import Icon from '../components/icons/Icon.jsx';
 import { Modal, Input, Textarea, Select, Btn, Tag, Card, PageHeader } from '../components/ui/index.jsx';
 import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, MetricTrendChart, HabitWeeklyBars, HBar, renderMd } from '../components/charts/index.jsx';
+import { callWithFallback, hasAnyKey } from '../config/aiProviders.js';
 
 const OB_AREAS = [
   {id:'salud',      label:'Salud',        emoji:'💪'},
@@ -16,8 +17,6 @@ const OB_AREAS = [
   {id:'ocio',       label:'Ocio',         emoji:'🎮'},
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
-
-const OPENAI_MODELS = ['gpt-4o-mini'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 // ── Intent detection ──
@@ -534,7 +533,7 @@ const stripPsickeJson=(text)=>{
   return out.trim();
 };
 
-const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone})=>{
+const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone})=>{
   const nowTime=()=>new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   const INIT_MSG={role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?',time:nowTime()};
   const [open,setOpen]=useState(false);
@@ -578,10 +577,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   const [copied,setCopied]=useState(null);
   const [slashMenu,setSlashMenu]=useState(false);
   const [showKeyPanel,setShowKeyPanel]=useState(false);
-  const [savedKey,setSavedKey]=useState(()=>{try{return localStorage.getItem('psicke_openai_key')||'';}catch{return '';}});
-  const [keyInput,setKeyInput]=useState('');
-  const [keySaved,setKeySaved]=useState(false);
-  const effectiveKey=((apiKey||savedKey)||'').trim().replace(/\s+/g,'');
+  const effectiveKey = hasAnyKey();
   const bottomRef=useRef(null);
   const recRef=useRef(null);
   const inputRef=useRef(null);
@@ -616,7 +612,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   // To re-enable: uncomment the block below
   /*
   useEffect(()=>{
-    if(!open||!apiKey) return;
+    if(!open||!hasAnyKey()) return;
     const key='psicke_daily_summary';
     const lastDate=localStorage.getItem(key);
     if(lastDate===today()) return;
@@ -720,83 +716,19 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
     const text=(textOverride??input).trim();
     if(!text||loading)return;
     setShowSugg(false);
-    const key=effectiveKey;
-    if(!key){setShowKeyPanel(true);return;}
-    if(key.length < 20){ setMsgs(m=>[...m,{role:'assistant',content:'⚠️ La API Key guardada parece incorrecta (muy corta). Ve a Ajustes 🔑 y pega la clave completa desde platform.openai.com → API Keys.',time:nowTime()}]); return; }
+    if(!hasAnyKey()){setShowKeyPanel(true);return;}
     const userMsg={role:'user',content:text,time:nowTime()};
     const next=[...msgs,userMsg];
     saveMsgs(next);setInput('');setLoading(true);
     try{
       const sysPrompt=buildPsickePrompt(data,challenge,text);
-      // Clean conversation for API: strip save labels, keep last 8 msgs (OpenAI format)
       const cleanMsgs=next.slice(-4).map(m=>({
         role:m.role==='assistant'?'assistant':'user',
         content:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '
       }));
-      const body={
-        model: OPENAI_MODELS[0], // overridden per callApi
-        messages:[
-          {role:'system', content:sysPrompt},
-          {role:'user',    content:'Hola Psicke, estoy listo.'},
-          {role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?'},
-          ...cleanMsgs
-        ],
-        temperature:0.7,
-        max_tokens:800,
-      };
 
-      // API call with model fallback + retry on 429
-      const callApi=async(modelIdx=0, attempt=0)=>{
-        const model = OPENAI_MODELS[modelIdx] || OPENAI_MODELS[0];
-        const res=await fetch(
-          'https://api.openai.com/v1/chat/completions',
-          {method:'POST',
-           headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-           body:JSON.stringify({...body, model})}
-        );
-        if(res.status===429){
-          const err=await res.json().catch(()=>({}));
-          const emsg=(err?.error?.message||'').toLowerCase();
-          // Daily quota exhausted → try next model
-          if(emsg.includes('quota')||emsg.includes('day')||emsg.includes('limit')){
-            if(modelIdx<OPENAI_MODELS.length-1) return callApi(modelIdx+1, 0);
-            throw new Error('Cuota o límite de OpenAI alcanzado. Revisa tu saldo en platform.openai.com/usage.');
-          }
-          // Rate limit por minuto → retry con backoff
-          if(attempt<2){
-            const wait=[8000,20000][attempt];
-            await new Promise(r=>setTimeout(r,wait));
-            return callApi(modelIdx, attempt+1);
-          }
-          if(modelIdx<OPENAI_MODELS.length-1) return callApi(modelIdx+1, 0);
-          throw new Error('Demasiadas solicitudes. Espera unos minutos e intenta de nuevo.');
-        }
-        if(res.status===401){
-          throw new Error('API Key de OpenAI no válida. Ve a Ajustes → borra la clave → pega la nueva desde platform.openai.com → API Keys.');
-        }
-        if(res.status===400){
-          const err=await res.json().catch(()=>({}));
-          throw new Error(`Error 400: ${err?.error?.message||'Solicitud inválida'}`);
-        }
-        if(res.status===404){
-          if(modelIdx<OPENAI_MODELS.length-1) return callApi(modelIdx+1, 0);
-          throw new Error('Modelo de OpenAI no disponible para esta API Key.');
-        }
-        if(!res.ok){
-          const err=await res.json().catch(()=>({}));
-          throw new Error(err?.error?.message||`Error HTTP ${res.status}`);
-        }
-        return res.json();
-      };
-
-      const d=await callApi();
-      // OpenAI response format
-      const raw=d.choices?.[0]?.message?.content;
-      if(!raw){
-        const reason=d.choices?.[0]?.finish_reason||'desconocido';
-        if(reason==='length') throw new Error('Respuesta cortada por límite de tokens. Intente un mensaje más corto.');
-        throw new Error(`Sin respuesta (${reason})`);
-      }
+      const {text: raw, provider: usedProvider} = await callWithFallback(cleanMsgs, sysPrompt);
+      console.log(`[Psicke] Respondido por: ${usedProvider}`);
 
       // Parse and execute ALL save actions present
       const actions=parsePsickeAction(raw);
@@ -1474,8 +1406,8 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                     style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.dim,fontSize:11,fontFamily:'inherit'}}>
                     Borrar
                   </button>
-                  <button onClick={()=>{setKeyInput(savedKey);setShowKeyPanel(true);}}
-                    title="Configurar API Key de OpenAI"
+                  <button onClick={()=>{closePanel();onGoSettings?.();}}
+                    title="Configurar API Keys"
                     style={{background:effectiveKey?'none':`${T.orange}22`,border:`1px solid ${effectiveKey?T.border:T.orange}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:effectiveKey?T.dim:T.orange,fontSize:11,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>
                     🔑{!effectiveKey&&<span style={{fontWeight:600}}>API Key</span>}
                   </button>
@@ -1738,82 +1670,31 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         </div>
       )}
 
-      {/* ── API KEY PANEL ── */}
+      {/* ── API KEY PANEL — redirect to Settings ── */}
       {showKeyPanel&&(
         <div style={{position:'fixed',inset:0,zIndex:1100,background:'rgba(0,0,0,0.72)',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}
           onClick={e=>{if(e.target===e.currentTarget)setShowKeyPanel(false);}}>
-          <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:20,padding:28,width:'100%',maxWidth:420,boxShadow:'0 24px 60px rgba(0,0,0,0.6)',animation:'pop-in 0.2s cubic-bezier(.22,1,.36,1) both'}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-              <div style={{width:40,height:40,borderRadius:12,background:`linear-gradient(135deg,${T.accent}33,${T.orange}22)`,border:`1px solid ${T.accent}30`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>🔑</div>
+          <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:20,padding:28,width:'100%',maxWidth:360,boxShadow:'0 24px 60px rgba(0,0,0,0.6)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+              <div style={{width:40,height:40,borderRadius:12,background:`${T.accent}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>🔑</div>
               <div>
-                <div style={{color:T.text,fontWeight:700,fontSize:15}}>API Key de OpenAI</div>
-                <div style={{color:T.muted,fontSize:11,marginTop:2}}>Necesaria para que Psicke funcione</div>
+                <div style={{color:T.text,fontWeight:700,fontSize:15}}>Sin API Key configurada</div>
+                <div style={{color:T.muted,fontSize:11,marginTop:2}}>Psicke necesita al menos un proveedor</div>
               </div>
             </div>
-
-            <div style={{marginBottom:12}}>
-              <label style={{display:'block',color:T.muted,fontSize:11,fontWeight:600,letterSpacing:0.8,textTransform:'uppercase',marginBottom:6}}>Tu clave de OpenAI</label>
-              <input
-                type="password"
-                value={keyInput}
-                onChange={e=>setKeyInput(e.target.value)}
-                onKeyDown={e=>{if(e.key==='Enter'&&keyInput.trim()){const k=keyInput.trim();try{localStorage.setItem('psicke_openai_key',k);}catch(err){}setSavedKey(k);setKeySaved(true);setTimeout(()=>{setKeySaved(false);setShowKeyPanel(false);},1200);}}}
-                placeholder="sk-proj-..."
-                autoComplete="off"
-                style={{width:'100%',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:12,padding:'11px 14px',
-                  color:T.text,fontSize:14,fontFamily:'inherit',outline:'none',boxSizing:'border-box',
-                  transition:'border-color .2s'}}
-                onFocus={e=>e.target.style.borderColor=`${T.accent}55`}
-                onBlur={e=>e.target.style.borderColor=T.border}
-              />
-              <p style={{color:T.dim,fontSize:11,margin:'8px 0 0',lineHeight:1.5}}>
-                Obtén tu clave en{' '}
-                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer"
-                  style={{color:T.accent,textDecoration:'none'}}>platform.openai.com/api-keys</a>.
-                Se guarda solo en este dispositivo.
-              </p>
-            </div>
-
-            {effectiveKey&&!keyInput&&(
-              <div style={{display:'flex',alignItems:'center',gap:6,background:`#34d39911`,border:`1px solid #34d39933`,borderRadius:10,padding:'8px 12px',marginBottom:12}}>
-                <span style={{color:'#34d399',fontSize:13}}>✓</span>
-                <span style={{color:'#34d399',fontSize:12}}>Clave activa: {effectiveKey.slice(0,8)}···{effectiveKey.slice(-4)}</span>
-              </div>
-            )}
-
-            <div style={{display:'flex',gap:8,marginTop:4}}>
+            <p style={{color:T.muted,fontSize:13,lineHeight:1.6,marginBottom:20}}>
+              Ve a <strong style={{color:T.text}}>Ajustes → IA</strong> y agrega la key de cualquier proveedor. Gemini tiene tier gratuito.
+            </p>
+            <div style={{display:'flex',gap:8}}>
               <button onClick={()=>setShowKeyPanel(false)}
                 style={{flex:1,background:'none',border:`1px solid ${T.border}`,borderRadius:12,padding:'10px',cursor:'pointer',color:T.muted,fontSize:13,fontFamily:'inherit'}}>
                 Cancelar
               </button>
-              <button onClick={()=>{
-                  const k=(keyInput||'').trim();
-                  if(!k)return;
-                  try{localStorage.setItem('psicke_openai_key',k);}catch(e){}
-                  setSavedKey(k);
-                  setKeySaved(true);
-                  setTimeout(()=>{setKeySaved(false);setShowKeyPanel(false);},1200);
-                }}
-                disabled={!keyInput.trim()}
-                style={{flex:2,background:keyInput.trim()?`linear-gradient(135deg,${T.accent},${T.orange})`:'#333',
-                  border:'none',borderRadius:12,padding:'10px',cursor:keyInput.trim()?'pointer':'not-allowed',
-                  color:'#fff',fontSize:13,fontWeight:700,fontFamily:'inherit',
-                  boxShadow:keyInput.trim()?`0 3px 14px rgba(79,142,247,.35)`:'none',
-                  transition:'all .2s'}}>
-                {keySaved?'✓ Guardada':'Guardar clave'}
+              <button onClick={()=>{setShowKeyPanel(false);closePanel();onGoSettings?.();}}
+                style={{flex:2,background:`linear-gradient(135deg,${T.accent},${T.orange})`,border:'none',borderRadius:12,padding:'10px',cursor:'pointer',color:'#fff',fontSize:13,fontWeight:700,fontFamily:'inherit'}}>
+                Ir a Ajustes →
               </button>
             </div>
-
-            {savedKey&&(
-              <button onClick={()=>{
-                  try{localStorage.removeItem('psicke_openai_key');}catch(e){}
-                  setSavedKey('');setKeyInput('');
-                }}
-                style={{width:'100%',marginTop:10,background:'none',border:'none',cursor:'pointer',
-                  color:T.red||'#ff5069',fontSize:11,fontFamily:'inherit',padding:'4px',opacity:0.7}}>
-                Eliminar clave guardada
-              </button>
-            )}
           </div>
         </div>
       )}
