@@ -103,6 +103,11 @@ export async function createCalendarEvent(reminder) {
     },
   };
 
+  // Agregar recurrencia si viene especificada (RRULE de RFC 5545)
+  if (reminder.rrule) {
+    event.recurrence = [reminder.rrule];
+  }
+
   const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
     method:  'POST',
     headers: {
