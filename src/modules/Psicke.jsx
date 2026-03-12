@@ -17,7 +17,7 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GROQ_MODELS = ['deepseek-r1-distill-qwen-32b','llama-3.3-70b-versatile'];
+const GROQ_MODELS = ['qwen/qwen3-32b','llama-3.3-70b-versatile'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
@@ -1138,7 +1138,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         role:m.role==='assistant'?'assistant':'user',
         content:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '
       }));
-      const body={
+      const baseBody={
         model: GROQ_MODELS[0], // overridden per callApi
         messages:[
           {role:'system', content:sysPrompt},
@@ -1146,18 +1146,23 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
           {role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?'},
           ...cleanMsgs
         ],
-        temperature:0.7,
-        max_tokens:800,
+        temperature:0.6,
+        max_tokens:1200,
       };
+      const REASONING_MODELS=['qwen/qwen3-32b'];
 
       // API call with model fallback + retry on 429
       const callApi=async(modelIdx=0, attempt=0)=>{
         const model = GROQ_MODELS[modelIdx] || GROQ_MODELS[0];
+        const isReasoning=REASONING_MODELS.includes(model);
+        const body=isReasoning
+          ?{...baseBody, model, reasoning_format:'parsed'}
+          :{...baseBody, model};
         const res=await fetch(
           'https://api.groq.com/openai/v1/chat/completions',
           {method:'POST',
            headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-           body:JSON.stringify({...body, model})}
+           body:JSON.stringify(body)}
         );
         if(res.status===429){
           const err=await res.json().catch(()=>({}));
@@ -1203,8 +1208,13 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         throw new Error(`Sin respuesta (${reason})`);
       }
 
-      // Extract DeepSeek R1 thinking block before parsing actions
-      const {thinking, text: cleanedRaw}=extractThinking(raw);
+      // With reasoning_format:'parsed', Groq returns thinking in a separate field
+      // For fallback models (no reasoning), this will be null/undefined
+      const parsedThinking=d.choices?.[0]?.message?.reasoning||null;
+      // Also try extracting <think> tags as fallback (for raw format models)
+      const {thinking: tagThinking, text: rawNoTags}=extractThinking(raw);
+      const thinking=parsedThinking||tagThinking||null;
+      const cleanedRaw=parsedThinking?raw:rawNoTags;
 
       // Parse and execute ALL save actions present
       const actions=parsePsickeAction(raw);
