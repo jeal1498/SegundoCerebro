@@ -1,10 +1,11 @@
 // ===================== GOOGLE CALENDAR INTEGRATION =====================
-// OAuth 2.0 implicit flow (browser-only, no backend needed)
+// OAuth 2.0 implicit flow — redirect mode (funciona en Chrome móvil)
 
-const CLIENT_ID = '247535277758-vuer2li51u07jljessg8r48hue049nur.apps.googleusercontent.com';
-const SCOPES    = 'https://www.googleapis.com/auth/calendar.events';
-const TOKEN_KEY = 'sb_gcal_token';
+const CLIENT_ID  = '247535277758-vuer2li51u07jljessg8r48hue049nur.apps.googleusercontent.com';
+const SCOPES     = 'https://www.googleapis.com/auth/calendar.events';
+const TOKEN_KEY  = 'sb_gcal_token';
 const EXPIRY_KEY = 'sb_gcal_expiry';
+const STATE_KEY  = 'sb_gcal_state';
 
 // ── Token helpers ─────────────────────────────────────────────────────
 function saveToken(token, expiresIn) {
@@ -34,93 +35,70 @@ export function isConnected() {
   return !!getToken();
 }
 
-// ── OAuth popup flow ──────────────────────────────────────────────────
+// ── Redirect flow (mobile-safe) ───────────────────────────────────────
+// Llama esto para iniciar OAuth — redirige a Google y vuelve a la app
 export function connectGoogleCalendar() {
-  return new Promise((resolve, reject) => {
-    const redirectUri = window.location.origin;
-    const state = Math.random().toString(36).slice(2);
+  const state = Math.random().toString(36).slice(2);
+  try { localStorage.setItem(STATE_KEY, state); } catch {}
 
-    const params = new URLSearchParams({
-      client_id:     CLIENT_ID,
-      redirect_uri:  redirectUri,
-      response_type: 'token',
-      scope:         SCOPES,
-      state,
-      prompt:        'consent',
-    });
-
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
-    const popup = window.open(authUrl, 'gcal_auth', 'width=500,height=600,left=100,top=100');
-
-    if (!popup) {
-      reject(new Error('Popup bloqueado. Permite popups para esta página.'));
-      return;
-    }
-
-    // Listen for redirect back with token in hash
-    const interval = setInterval(() => {
-      try {
-        if (popup.closed) {
-          clearInterval(interval);
-          reject(new Error('Ventana cerrada sin autorizar'));
-          return;
-        }
-        const url = popup.location.href;
-        if (url.includes('access_token')) {
-          popup.close();
-          clearInterval(interval);
-          const hash = new URLSearchParams(url.split('#')[1] || url.split('?')[1] || '');
-          const token     = hash.get('access_token');
-          const expiresIn = parseInt(hash.get('expires_in') || '3600');
-          if (token) {
-            saveToken(token, expiresIn);
-            resolve(token);
-          } else {
-            reject(new Error('No se recibió token de acceso'));
-          }
-        }
-      } catch {
-        // Cross-origin error while Google is processing — ignore and keep polling
-      }
-    }, 500);
-
-    // Timeout after 3 minutes
-    setTimeout(() => {
-      clearInterval(interval);
-      if (!popup.closed) popup.close();
-      reject(new Error('Tiempo de espera agotado'));
-    }, 180_000);
+  const redirectUri = window.location.origin + window.location.pathname;
+  const params = new URLSearchParams({
+    client_id:     CLIENT_ID,
+    redirect_uri:  redirectUri,
+    response_type: 'token',
+    scope:         SCOPES,
+    state,
+    prompt:        'consent',
   });
+
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-// ── Create Calendar Event ─────────────────────────────────────────────
-// reminder: { title, body, fireAt (timestamp ms), durationMinutes? }
-export async function createCalendarEvent(reminder) {
-  let token = getToken();
+// ── Procesar el callback OAuth al volver a la app ─────────────────────
+// Llamar esto en App.jsx al montar. Retorna true si hubo token nuevo.
+export function handleOAuthCallback() {
+  try {
+    const hash = window.location.hash;
+    if (!hash.includes('access_token')) return false;
 
-  if (!token) {
-    try {
-      token = await connectGoogleCalendar();
-    } catch (e) {
-      throw new Error('No autenticado con Google Calendar: ' + e.message);
-    }
-  }
+    const params     = new URLSearchParams(hash.replace('#', ''));
+    const token      = params.get('access_token');
+    const expiresIn  = parseInt(params.get('expires_in') || '3600');
+    const state      = params.get('state');
+    const savedState = localStorage.getItem(STATE_KEY);
+
+    // Limpiar el hash de la URL para que no quede visible
+    history.replaceState(null, '', window.location.pathname);
+    localStorage.removeItem(STATE_KEY);
+
+    if (!token) return false;
+    // Validar state para prevenir CSRF (relajado: si no hay state guardado igual acepta)
+    if (savedState && state !== savedState) return false;
+
+    saveToken(token, expiresIn);
+    return true;
+  } catch { return false; }
+}
+
+// ── Crear evento en Google Calendar ──────────────────────────────────
+export async function createCalendarEvent(reminder) {
+  const token = getToken();
+  if (!token) throw new Error('No conectado a Google Calendar');
 
   const start = new Date(reminder.fireAt);
   const end   = new Date(reminder.fireAt + (reminder.durationMinutes || 30) * 60_000);
-
-  const fmt = (d) => d.toISOString();
+  const tz    = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const event = {
     summary:     reminder.title,
     description: reminder.body || 'Recordatorio de Segundo Cerebro',
-    start:   { dateTime: fmt(start), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
-    end:     { dateTime: fmt(end),   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+    start: { dateTime: start.toISOString(), timeZone: tz },
+    end:   { dateTime: end.toISOString(),   timeZone: tz },
     reminders: {
       useDefault: false,
       overrides:  [
-        { method: 'popup',  minutes: 0 },
-        { method: 'popup',  minutes: 10 },
+        { method: 'popup', minutes: 0  },
+        { method: 'popup', minutes: 10 },
       ],
     },
   };
