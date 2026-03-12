@@ -1,4 +1,4 @@
-import { uid, today } from '../utils/helpers.js';
+import { uid } from '../utils/helpers.js';
 import { T } from '../theme/tokens.js';
 
 // ===================== INITIAL DATA =====================
@@ -12,19 +12,15 @@ const initData = () => ({
     {id:uid(),name:'Relaciones',color:T.areaColors[5],icon:'👥'},
     {id:uid(),name:'Side Projects',color:T.areaColors[6],icon:'🚀'},
   ],
-  objectives:[{id:uid(),title:'Correr una maratón',areaId:'',deadline:'2026-12-31',status:'active'}],
+  objectives:[],
   projects:[],tasks:[],
-  notes:[{id:uid(),title:'Cómo funciona el Segundo Cerebro',content:'El Segundo Cerebro es un sistema para externalizar nuestra memoria y liberar carga cognitiva. Basado en el método de Tiago Forte: Áreas → Objetivos → Proyectos → Tareas.',tags:['productividad','sistema'],areaId:'',createdAt:today()}],
-  inbox:[{id:uid(),content:'Revisar el sistema de Segundo Cerebro',createdAt:today(),processed:false}],
-  habits:[
-    {id:uid(),name:'Meditar 10 min',frequency:'daily',completions:[]},
-    {id:uid(),name:'Leer 30 min',frequency:'daily',completions:[]},
-    {id:uid(),name:'Ejercicio',frequency:'daily',completions:[]},
-  ],
+  notes:[],
+  inbox:[],
+  habits:[],
   budget:[],
   transactions:[],
   healthMetrics:[],
-  healthGoals:{peso:75,sueño:8,pasos:10000,agua:2,entrenosSem:4},
+  healthGoals:{peso:0,sueño:0,pasos:0,agua:0,entrenosSem:0},
   medications:[],
   workouts:[],
   maintenances:[],
@@ -42,7 +38,7 @@ const initData = () => ({
   spTimeLogs:[],
   journal:[],
   books:[],
-  shopping:[{id:uid(),name:'Leche',qty:2,unit:'L',category:'Lácteos',done:false,createdAt:today()},{id:uid(),name:'Pan integral',qty:1,unit:'pza',category:'Panadería',done:false,createdAt:today()}],
+  shopping:[],
   education:[],
   carMaintenances:[],
   carExpenses:[],
@@ -51,7 +47,6 @@ const initData = () => ({
   carInfo:{brand:'',model:'',year:'',plate:'',km:'',fuelType:'gasolina',fuelType1:'',fuelType2:''},
   vehicles:[],
   activeVehicleId:null,
-  // Tanda 1 — Entretenimiento, Mascotas, Viajes
   entertainment:[],
   pets:[],
   petVaccines:[],
@@ -60,19 +55,15 @@ const initData = () => ({
   tripStops:[],
   tripExpenses:[],
   tripChecklist:{},
-  // Tanda 2 — Nutrición y Sueño
   recipes:[],
   weekMenus:{},
   sleepLog:[],
   dreamJournal:[],
-  // Tanda 3 — Momentos, 21 días, visitas médicas
   moments:[],
   habitChallenges:[],
   medicalVisits:[],
   medicalDocs:[],
-  // Farmacia
   farmaciaItems:[],
-  // Reminders
   reminders:[],
 });
 
