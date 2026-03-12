@@ -17,7 +17,7 @@ const OB_AREAS = [
   {id:'proyectos',  label:'Proyectos',    emoji:'🚀'},
 ];
 
-const GROQ_MODELS = ['llama-3.3-70b-versatile'];
+const GROQ_MODELS = ['deepseek-r1-distill-llama-70b','llama-3.3-70b-versatile'];
 
 // ===================== PSICKE — FLOATING BRAIN =====================
 const buildPsickePrompt=(data,challenge)=>{
@@ -917,57 +917,29 @@ const parsePsickeAction=(text)=>{
   }
   return actions.length>0?actions:null;
 };
+// Extracts DeepSeek R1 <think> blocks and returns { thinking, text }
+const extractThinking=(raw)=>{
+  // DeepSeek R1 wraps its reasoning in <think>...</think>
+  const thinkMatch=raw.match(/<think>([\s\S]*?)<\/think>/i);
+  const thinking=thinkMatch?thinkMatch[1].trim():null;
+  // Remove the think block from the display text
+  let text=raw.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
+  // Strip JSON action blocks from display
+  text=text.replace(/```json[\s\S]*?```/g,'').trim();
+  return {thinking, text};
+};
+
 const stripPsickeJson=(text)=>{
-  // 1. Strip <pensamiento> blocks (ideal case when Gemini follows instructions)
+  // Legacy cleanup for non-DeepSeek models (fallback)
   let out=text.replace(/<pensamiento>[\s\S]*?<\/pensamiento>/gi,'');
-
-  // 2. Fallback: Gemini sometimes writes reasoning as plain text using PASO/ETAPA labels.
-  //    Detect the pattern and keep only what comes after the last reasoning label block.
-  //    Strategy: find the last occurrence of a reasoning marker line, discard everything before it.
-  const reasoningMarkers=[
-    /^PASO\s+[IVX\d]+\s*[—\-]/m,
-    /^ETAPA\s+[A-D]\s*[—\-]/m,
-    /^TIPO DE ENTRADA:/m,
-    /^NIVEL JERÁRQUICO:/m,
-    /^ÁRBOL DE DECISIÓN:/m,
-    /^\[PASO/m,
-    /^\[ETAPA/m,
-  ];
-  // Also strip any [PASO...] bracket blocks entirely
   out=out.replace(/\[PASO[\s\S]*?\]/g,'').replace(/\[ETAPA[\s\S]*?\]/g,'');
-  // Find the last line that looks like a reasoning header
-  const lines=out.split('\n');
-  let lastReasoningLine=-1;
-  lines.forEach((line,i)=>{
-    if(reasoningMarkers.some(r=>r.test(line))) lastReasoningLine=i;
-  });
-  if(lastReasoningLine>=0){
-    // Find the next non-empty line after the block that doesn't start with a reasoning pattern
-    let cutAt=-1;
-    for(let i=lastReasoningLine+1;i<lines.length;i++){
-      const l=lines[i].trim();
-      if(!l) continue;
-      // If this line itself looks like reasoning, skip it and its content
-      if(reasoningMarkers.some(r=>r.test(l))) continue;
-      // Check it's not a sub-item of reasoning (starts with arrow, dash+space reasoning keyword)
-      if(/^[→\-]\s*(PASO|ETAPA|Nivel:|Acción:|SÍ|NO\s)/.test(l)) continue;
-      cutAt=i;
-      break;
-    }
-    if(cutAt>=0) out=lines.slice(cutAt).join('\n');
-  }
-
-  // 3. Strip common reasoning leaks
   out=out.replace(/^No hay(?:acción|\s+acción)[^\n]*/gim,'');
   out=out.replace(/^Acción:\s*ninguna[^\n]*/gim,'');
   out=out.replace(/^Módulo:[^\n]*/gim,'');
   out=out.replace(/^Tipo de entrada:[^\n]*/gim,'');
   out=out.replace(/^Área relevante:[^\n]*/gim,'');
   out=out.replace(/^Acción a ejecutar:[^\n]*/gim,'');
-
-  // 4. Strip JSON blocks
   out=out.replace(/```json[\s\S]*?```/g,'');
-
   return out.trim();
 };
 
@@ -1014,6 +986,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
   const [editVal,setEditVal]=useState('');
   const [copied,setCopied]=useState(null);
   const [slashMenu,setSlashMenu]=useState(false);
+  const [expandedThinking,setExpandedThinking]=useState({});
   const bottomRef=useRef(null);
   const recRef=useRef(null);
   const inputRef=useRef(null);
@@ -1230,9 +1203,12 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         throw new Error(`Sin respuesta (${reason})`);
       }
 
+      // Extract DeepSeek R1 thinking block before parsing actions
+      const {thinking, text: cleanedRaw}=extractThinking(raw);
+
       // Parse and execute ALL save actions present
       const actions=parsePsickeAction(raw);
-      const display=stripPsickeJson(raw);
+      const display=stripPsickeJson(cleanedRaw);
       const savedLabels=[];
 
       if(actions&&setData){
@@ -1785,7 +1761,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         setData(d=>({...d,...delta}));
       }
       const finalContent=display+(savedLabels.length?'\n\n✅ '+savedLabels.join('\n✅ '):'');
-      saveMsgs([...next,{role:'assistant',content:finalContent,time:nowTime()}]);
+      saveMsgs([...next,{role:'assistant',content:finalContent,thinking:thinking||null,time:nowTime()}]);
     }catch(e){
       const msg=e.message==='Failed to fetch'
         ?'No se pudo conectar. Verifica su conexión o que la API key sea válida.'
@@ -1814,6 +1790,8 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
         @keyframes psicke-ring{0%{opacity:0.6;transform:scale(1)}100%{opacity:0;transform:scale(1.8)}}
         @keyframes pop-in{from{opacity:0;transform:scale(.93) translateY(5px)}to{opacity:1;transform:scale(1) translateY(0)}}
         @keyframes psicke-dot{0%,100%{opacity:.25;transform:scale(.65)}50%{opacity:1;transform:scale(1)}}
+        @keyframes thinking-in{from{opacity:0;max-height:0}to{opacity:1;max-height:2000px}}
+        .psicke-thinking-body{animation:thinking-in 0.25s ease-out both;overflow:hidden;}
         .psicke-bubble:active{transform:scale(0.93)!important;}
         .psicke-msg{animation:pop-in 0.2s cubic-bezier(.22,1,.36,1) both;}
       `}</style>
@@ -1930,22 +1908,69 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose,welcomeDa
                           </div>
                         </div>
                       ):(
-                        <div
-                          onClick={e=>{if(isUser){e.stopPropagation();setMsgMenu(showMenu?null:i);}}}
-                          style={{
-                            maxWidth:'75%',minWidth:64,
-                            padding:'10px 14px',
-                            borderRadius:isUser
-                              ?(prevSameRole?'18px 4px 4px 18px':'18px 18px 4px 18px')
-                              :(prevSameRole?'4px 18px 18px 4px':'4px 18px 18px 4px'),
-                            fontSize:14.5,lineHeight:1.65,whiteSpace:'pre-wrap',wordBreak:'break-word',
-                            background:isUser?`linear-gradient(135deg,#1b4fa0,#133b82)`:'#eef1f6',
-                            color:isUser?'#fff':'#1c2333',
-                            boxShadow:isUser?`0 2px 12px rgba(27,79,160,.3)`:`0 1px 3px rgba(0,0,0,.07)`,
-                            cursor:isUser?'pointer':'default',
-                            transition:'opacity 0.15s',
-                            opacity:isUser&&showMenu?0.8:1}}>
-                          <span dangerouslySetInnerHTML={{__html:renderMd(m.content||'')}}/>
+                        <div style={{display:'flex',flexDirection:'column',gap:3,maxWidth:'75%'}}>
+
+                          {/* ── DeepSeek R1 Thinking Block ── */}
+                          {!isUser&&m.thinking&&(
+                            <div style={{display:'flex',flexDirection:'column',gap:0}}>
+                              <button
+                                onClick={()=>setExpandedThinking(s=>({...s,[i]:!s[i]}))}
+                                style={{
+                                  display:'flex',alignItems:'center',gap:6,
+                                  background:'none',border:'none',cursor:'pointer',
+                                  padding:'2px 0 4px',fontFamily:'inherit',
+                                  color:T.muted,fontSize:11,fontWeight:700,
+                                  letterSpacing:0.6,textTransform:'uppercase',
+                                  opacity:0.8,transition:'opacity 0.15s',
+                                  alignSelf:'flex-start',
+                                }}
+                                onMouseEnter={e=>e.currentTarget.style.opacity=1}
+                                onMouseLeave={e=>e.currentTarget.style.opacity=0.8}>
+                                <span style={{
+                                  fontSize:13,
+                                  transform:expandedThinking[i]?'rotate(0deg)':'rotate(-90deg)',
+                                  transition:'transform 0.2s',display:'inline-block'
+                                }}>▾</span>
+                                <span style={{
+                                  background:`linear-gradient(90deg,${T.accent},${T.orange})`,
+                                  WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
+                                }}>Razonamiento</span>
+                              </button>
+                              {expandedThinking[i]&&(
+                                <div className="psicke-thinking-body" style={{
+                                  background:`linear-gradient(135deg,${T.accent}09,${T.orange}06)`,
+                                  border:`1px solid ${T.accent}22`,
+                                  borderLeft:`3px solid ${T.accent}55`,
+                                  borderRadius:'4px 12px 12px 4px',
+                                  padding:'10px 14px',
+                                  fontSize:12.5,lineHeight:1.7,
+                                  color:T.muted,whiteSpace:'pre-wrap',wordBreak:'break-word',
+                                  fontStyle:'italic',
+                                  marginBottom:4,
+                                }}>
+                                  {m.thinking}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div
+                            onClick={e=>{if(isUser){e.stopPropagation();setMsgMenu(showMenu?null:i);}}}
+                            style={{
+                              minWidth:64,
+                              padding:'10px 14px',
+                              borderRadius:isUser
+                                ?(prevSameRole?'18px 4px 4px 18px':'18px 18px 4px 18px')
+                                :(prevSameRole?'4px 18px 18px 4px':'4px 18px 18px 4px'),
+                              fontSize:14.5,lineHeight:1.65,whiteSpace:'pre-wrap',wordBreak:'break-word',
+                              background:isUser?`linear-gradient(135deg,#1b4fa0,#133b82)`:'#eef1f6',
+                              color:isUser?'#fff':'#1c2333',
+                              boxShadow:isUser?`0 2px 12px rgba(27,79,160,.3)`:`0 1px 3px rgba(0,0,0,.07)`,
+                              cursor:isUser?'pointer':'default',
+                              transition:'opacity 0.15s',
+                              opacity:isUser&&showMenu?0.8:1}}>
+                            <span dangerouslySetInnerHTML={{__html:renderMd(m.content||'')}}/>
+                          </div>
                         </div>
                       )}
                     </div>
