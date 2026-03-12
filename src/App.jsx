@@ -43,7 +43,7 @@ const Sueno            = lazy(() => import('./modules/Sueno.jsx'));
 
 // ── Storage helpers (re-export pattern for App-level use) ──
 import { save, load } from './storage/index.js';
-import { registerNotificationSW, checkOnFocus } from './utils/notifications.js';
+import { registerNotificationSW, checkOnFocus, requestPermission, getPermission } from './utils/notifications.js';
 import { uid, today } from './utils/helpers.js';
 import { initData } from './context/initialData.js';
 
@@ -76,6 +76,13 @@ function App() {
   useEffect(() => {
     registerNotificationSW();
     checkOnFocus();
+  }, []);
+
+  // ── Pedir permiso de notificaciones tras interacción del usuario ──
+  const askNotifPermission = useCallback(async () => {
+    if (getPermission() === 'granted') return;
+    if (getPermission() === 'denied') return;
+    await requestPermission();
   }, []);
 
   // ── System theme sync ──
@@ -429,7 +436,8 @@ function App() {
       <Suspense fallback={null}>
         <Psicke onGoSettings={() => navTo('settings')} data={data} setData={setData}
           openFromNav={psickeOpen} onNavClose={() => setPsickeOpen(false)}
-          welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}/>
+          welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}
+          onRequestNotifPermission={askNotifPermission}/>
       </Suspense>
 
       {/* ── PWA Install Banner ── */}
@@ -448,7 +456,7 @@ function App() {
       {/* ── Psicke FAB ── */}
       {!showWelcome && !psickeOpen && (
         <button
-          onClick={() => setPsickeOpen(true)}
+          onClick={() => { setPsickeOpen(true); askNotifPermission(); }}
           style={{ position:'fixed',bottom:isMobile?82:24,right:16,zIndex:200,width:56,height:56,borderRadius:18,
             background:`linear-gradient(135deg,${T.accent},${T.orange})`,
             border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
