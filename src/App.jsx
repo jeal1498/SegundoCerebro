@@ -43,7 +43,7 @@ const Sueno            = lazy(() => import('./modules/Sueno.jsx'));
 
 // ── Storage helpers (re-export pattern for App-level use) ──
 import { save, load } from './storage/index.js';
-import { registerNotificationSW, checkOnFocus, requestPermission, getPermission } from './utils/notifications.js';
+import { registerNotificationSW, checkOnFocus, requestPermission, getPermission, startFocusCheck } from './utils/notifications.js';
 import { uid, today } from './utils/helpers.js';
 import { initData } from './context/initialData.js';
 
@@ -76,6 +76,7 @@ function App() {
   useEffect(() => {
     registerNotificationSW();
     checkOnFocus();
+    startFocusCheck();
   }, []);
 
   // ── Pedir permiso de notificaciones tras interacción del usuario ──
