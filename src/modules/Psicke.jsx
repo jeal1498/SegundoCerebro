@@ -474,10 +474,7 @@ ${examples.join('\n')}
 ═══ RECORDATORIOS CON NOTIFICACIÓN PUSH ═══
 Usa SAVE_REMINDER cuando el usuario pida que le recuerdes algo a una hora/fecha específica.
 Campos: title✦, body, timeStr (texto legible como "mañana a las 8am"), fireAt (timestamp ms si lo calculas).
-Ejemplo:
-```json
-{"action":"SAVE_REMINDER","data":{"title":"Pagar seguro del coche","body":"Vence hoy","timeStr":"mañana a las 9am"}}
-```
+Ejemplo: {"action":"SAVE_REMINDER","data":{"title":"Pagar seguro del coche","body":"Vence hoy","timeStr":"mañana a las 9am"}}
 NUNCA inventes la hora si el usuario no la dice — en ese caso omite timeStr y fireAt.
 
 ${challengeBlock}`;
