@@ -486,7 +486,10 @@ RRULES frecuentes:
 - "cada año / anual"            → "RRULE:FREQ=YEARLY"
 - "cada lunes por 4 semanas"    → "RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=4"
 
-Ejemplo recurrente — "recuérdame cada lunes a las 8am tomar vitaminas":
+Ejemplo recurrente diario — "recuérdame cada día a las 10pm revisar metas":
+{"action":"SAVE_REMINDER","data":{"title":"Revisar metas","body":"","timeStr":"cada día a las 10pm","fireAt":"${(()=>{const d=new Date();d.setHours(22,0,0,0);if(d<=new Date())d.setDate(d.getDate()+1);return d.toISOString();})()}","rrule":"RRULE:FREQ=DAILY"}}
+
+Ejemplo recurrente semanal — "recuérdame cada lunes a las 8am tomar vitaminas":
 {"action":"SAVE_REMINDER","data":{"title":"Tomar vitaminas","body":"","timeStr":"cada lunes a las 8am","fireAt":"${(()=>{const d=new Date();d.setDate(d.getDate()+(1-d.getDay()+7)%7||7);d.setHours(8,0,0,0);return d.toISOString();})()}","rrule":"RRULE:FREQ=WEEKLY;BYDAY=MO"}}
 
 Ejemplo único — "hoy a las 4pm":
