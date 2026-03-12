@@ -196,6 +196,21 @@ export function parseReminderTime(str) {
     return { fireAt: Date.now() + parseInt(hrsMatch[1]) * 60 * 60 * 1000 };
   }
 
+  // "cada X a las HH:mm" — extrae solo la hora para el primer evento (hoy o mañana)
+  const cadaMatch = s.match(/cada.*?(?:las?\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+  if (cadaMatch) {
+    const d = new Date();
+    let h = parseInt(cadaMatch[1]);
+    const m = parseInt(cadaMatch[2] || '0');
+    const esTardeRec = /tarde|noche|pm/.test(s);
+    const meridiem = cadaMatch[3] || (esTardeRec ? 'pm' : '');
+    if (meridiem === 'pm' && h < 12) h += 12;
+    if (meridiem === 'am' && h === 12) h = 0;
+    d.setHours(h, m, 0, 0);
+    if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1); // si ya pasó hoy, empezar mañana
+    return { fireAt: d.getTime() };
+  }
+
   // ISO date o parseable
   const parsed = new Date(str);
   if (!isNaN(parsed.getTime())) {
