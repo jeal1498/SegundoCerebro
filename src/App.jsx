@@ -49,10 +49,10 @@ import { uid, today } from './utils/helpers.js';
 import { initData } from './context/initialData.js';
 
 function App() {
-  const [view, setView]               = useState('dashboard');
+  const [view, setView]               = useState('psicke');
   const [viewHint, setViewHint]       = useState(null);
   const [data, setData]               = useState(null);
-  const [psickeOpen, setPsickeOpen]   = useState(false);
+  const [sidePanel, setSidePanel]     = useState(null);  // módulo abierto como panel
   const [welcomePsicke, setWelcomePsicke] = useState(null);
   const [showSearch, setShowSearch]   = useState(false);
   const [hasKey, setHasKey]           = useState(() => { migrateLegacyKeys(); return hasAnyKey(); });
@@ -139,33 +139,17 @@ function App() {
 
   // ── Android back button trap ──
   useEffect(() => {
-    // Push a dummy state so the back button pops it instead of leaving the app
     history.pushState(null, '', window.location.href);
     const onPop = () => {
       history.pushState(null, '', window.location.href);
-      // If a panel is open, close it; otherwise stay on current view
-      if (psickeOpen) { setPsickeOpen(false); return; }
+      if (sidePanel) { setSidePanel(null); return; }
       if (showSearch) { setShowSearch(false); return; }
-      if (view !== 'dashboard') { navTo('dashboard'); }
+      if (view !== 'psicke') { navTo('psicke'); }
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, psickeOpen, showSearch]);
-
-  // ── Android back button trap ──
-  useEffect(() => {
-    history.pushState(null, '', window.location.href);
-    const onPop = () => {
-      history.pushState(null, '', window.location.href);
-      if (psickeOpen) { setPsickeOpen(false); return; }
-      if (showSearch) { setShowSearch(false); return; }
-      if (view !== 'dashboard') { navTo('dashboard'); }
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, psickeOpen, showSearch]);
+  }, [view, sidePanel, showSearch]);
 
   // ── PWA + SW ──
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -226,20 +210,27 @@ function App() {
 
   // ── Navigation ──
   const navigate = (v, hint = null) => {
+    if (v === 'psicke') { setSidePanel(null); setView('psicke'); return; }
+    if (v === 'settings') { setSidePanel(null); setView('settings'); return; }
+    if (view === 'psicke') { setSidePanel(v); setViewHint(hint); return; }
     if (v === view) { setViewHint(hint); return; }
     setTransitioning(true);
     setTimeout(() => { setView(v); setViewHint(hint); setTransitioning(false); }, 120);
   };
   const navTo = (v) => {
+    if (v === 'psicke') { setSidePanel(null); setView('psicke'); return; }
+    if (v === 'settings') { setSidePanel(null); setView('settings'); return; }
+    if (view === 'psicke') { setSidePanel(v); return; }
     if (v === view) return;
     setTransitioning(true);
     setTimeout(() => { setView(v); setViewHint(null); setTransitioning(false); }, 120);
   };
   const consumeHint = useCallback(() => setViewHint(null), []);
   const backToDashboard = useCallback(() => {
+    if (view === 'psicke') { setSidePanel(null); return; }
     setTransitioning(true);
-    setTimeout(() => { setView('dashboard'); setViewHint(null); setTransitioning(false); }, 120);
-  }, []);
+    setTimeout(() => { setView('psicke'); setViewHint(null); setTransitioning(false); }, 120);
+  }, [view]);
 
   const CAPTURE_DEST = [
     {id:'inbox', label:'Inbox',   emoji:'📥'},
@@ -277,40 +268,48 @@ function App() {
   if (!data) return <AppLoader />;
 
   const inboxCount = data.inbox.filter(i => !i.processed).length;
-  const props = { data, setData, isMobile };
 
   // ── View renderer ──
-  const renderView = () => {
-    switch (view) {
-      case 'dashboard':    return <Dashboard {...props} onNavigate={navigate} />;
+  const renderSidePanel = () => {
+    const onBack = () => setSidePanel(null);
+    const p = { data, setData, isMobile };
+    switch (sidePanel) {
+      case 'dashboard':    return <Dashboard {...p} onNavigate={navigate} />;
       case 'areas':        return <Areas data={data} isMobile={isMobile} onNavigate={navigate} />;
-      case 'areaDetail':   return <AreaDetail {...props} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} onBack={() => navTo('areas')} />;
-      case 'objectives':   return <Objectives {...props} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} />;
-      case 'projects':     return <ProjectsAndTasks {...props} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} />;
-      case 'notes':        return <Notes {...props} viewHint={viewHint} onConsumeHint={consumeHint} />;
-      case 'finance':      return <Finance {...props} onBack={backToDashboard} />;
-      case 'inbox':        return <Inbox {...props} />;
-      case 'habits':       return <HabitTracker {...props} />;
-      case 'journal':      return <Journal {...props} />;
-      case 'books':        return <Books {...props} />;
-      case 'shopping':     return <Shopping {...props} />;
-      case 'education':    return <Education {...props} />;
-      case 'health':       return <Health {...props} onBack={backToDashboard} />;
-      case 'relaciones':   return <Relaciones {...props} onBack={backToDashboard} />;
-      case 'sideprojects': return <SideProjects {...props} onBack={backToDashboard} />;
-      case 'trabajo':      return <TrabajoEmbed isMobile={isMobile} onBack={backToDashboard} />;
-      case 'desarrollo':   return <DesarrolloPersonal {...props} onBack={backToDashboard} />;
-      case 'hogar':        return <Hogar {...props} onBack={backToDashboard} />;
-      case 'coche':        return <Vehiculos {...props} onBack={backToDashboard} />;
-      case 'entretenimiento': return <Entretenimiento {...props} onBack={backToDashboard} />;
-      case 'mascotas':     return <Mascotas {...props} onBack={backToDashboard} />;
-      case 'viajes':       return <Viajes {...props} onBack={backToDashboard} />;
-      case 'nutricion':    return <Nutricion {...props} onBack={backToDashboard} />;
-      case 'sueno':        return <Sueno {...props} onBack={backToDashboard} />;
-      case 'settings':     return (
+      case 'areaDetail':   return <AreaDetail {...p} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} onBack={onBack} />;
+      case 'objectives':   return <Objectives {...p} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} />;
+      case 'projects':     return <ProjectsAndTasks {...p} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} />;
+      case 'notes':        return <Notes {...p} viewHint={viewHint} onConsumeHint={consumeHint} />;
+      case 'finance':      return <Finance {...p} onBack={onBack} />;
+      case 'inbox':        return <Inbox {...p} />;
+      case 'habits':       return <HabitTracker {...p} />;
+      case 'journal':      return <Journal {...p} />;
+      case 'books':        return <Books {...p} />;
+      case 'shopping':     return <Shopping {...p} />;
+      case 'education':    return <Education {...p} />;
+      case 'health':       return <Health {...p} onBack={onBack} />;
+      case 'relaciones':   return <Relaciones {...p} onBack={onBack} />;
+      case 'sideprojects': return <SideProjects {...p} onBack={onBack} />;
+      case 'trabajo':      return <TrabajoEmbed isMobile={isMobile} onBack={onBack} />;
+      case 'desarrollo':   return <DesarrolloPersonal {...p} onBack={onBack} />;
+      case 'hogar':        return <Hogar {...p} onBack={onBack} />;
+      case 'coche':        return <Vehiculos {...p} onBack={onBack} />;
+      case 'entretenimiento': return <Entretenimiento {...p} onBack={onBack} />;
+      case 'mascotas':     return <Mascotas {...p} onBack={onBack} />;
+      case 'viajes':       return <Viajes {...p} onBack={onBack} />;
+      case 'nutricion':    return <Nutricion {...p} onBack={onBack} />;
+      case 'sueno':        return <Sueno {...p} onBack={onBack} />;
+      default: return null;
+    }
+  };
+
+  const renderView = () => {
+    if (view === 'psicke') return null; // Psicke se renderiza directamente en el layout
+    switch (view) {
+      case 'settings': return (
         <Settings isMobile={isMobile} data={data} setData={setData}
           viewHint={viewHint} onConsumeHint={consumeHint}
-          onOpenPsicke={() => setPsickeOpen(true)}
+          onOpenPsicke={() => navTo('psicke')}
           onInstall={(!isInstalled && installPrompt) ? triggerInstall : null}
           isInstalled={isInstalled} />
       );
@@ -336,6 +335,7 @@ function App() {
         ::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px;}
         @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
         @keyframes sbSlideUp{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+        @keyframes sbPanelUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
         input[type=date]::-webkit-calendar-picker-indicator{filter:${isDark?'invert(0.5)':'none'};}
         select option{background:${T.surface};color:${T.text};}
       `}</style>
@@ -364,7 +364,7 @@ function App() {
               <div key={section.label} style={{ marginBottom:4 }}>
                 <div style={{ fontSize:9,fontWeight:700,color:T.dim,letterSpacing:1.2,textTransform:'uppercase',padding:'8px 12px 4px' }}>{section.label}</div>
                 {section.items.map(item => {
-                  const active = view === item.id;
+                  const active = view === item.id || sidePanel === item.id;
                   const badge  = item.id === 'inbox' && inboxCount > 0 ? inboxCount : null;
                   return (
                     <button key={item.id} onClick={() => navTo(item.id)}
@@ -410,25 +410,81 @@ function App() {
       )}
 
       {/* ── Main content ── */}
-      <main style={{ flex:1,overflowY:'auto',padding:isMobile?'16px 16px 90px':'28px',minHeight:0,marginTop:isOnline?0:28 }}>
-        <div style={{ opacity:transitioning?0:1,transform:transitioning?'translateY(6px)':'translateY(0)',transition:'opacity 0.12s ease,transform 0.12s ease' }}>
+      {view === 'psicke' ? (
+        /* Psicke ocupa toda la pantalla principal */
+        <div style={{ flex:1, display:'flex', flexDirection:'column', minHeight:0, overflow:'hidden', paddingBottom: isMobile ? 'calc(60px + env(safe-area-inset-bottom))' : 0 }}>
           <Suspense fallback={<AppLoader/>}>
-            {renderView()}
+            <Psicke
+              asScreen
+              onGoSettings={() => navTo('settings')}
+              data={data} setData={setData}
+              openFromNav={false} onNavClose={() => {}}
+              welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}
+              onRequestNotifPermission={askNotifPermission}
+              onOpenModule={(moduleId) => setSidePanel(moduleId)}
+            />
           </Suspense>
         </div>
-      </main>
+      ) : (
+        <main style={{ flex:1,overflowY:'auto',padding:isMobile?'16px 16px 90px':'28px',minHeight:0,marginTop:isOnline?0:28 }}>
+          <div style={{ opacity:transitioning?0:1,transform:transitioning?'translateY(6px)':'translateY(0)',transition:'opacity 0.12s ease,transform 0.12s ease' }}>
+            <Suspense fallback={<AppLoader/>}>
+              {renderView()}
+            </Suspense>
+          </div>
+        </main>
+      )}
+
+      {/* ── Slide-up panel (módulos sobre Psicke) ── */}
+      {view === 'psicke' && sidePanel && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setSidePanel(null); }}
+          style={{ position:'fixed',inset:0,zIndex:300,background:'rgba(0,0,0,0.55)',backdropFilter:'blur(4px)',WebkitBackdropFilter:'blur(4px)' }}
+        >
+          <div style={{
+            position:'absolute', bottom:0, left:0, right:0,
+            height:'92dvh',
+            background:T.bg,
+            borderRadius:'20px 20px 0 0',
+            display:'flex', flexDirection:'column',
+            overflow:'hidden',
+            animation:'sbPanelUp 0.3s cubic-bezier(0.32,0.72,0,1) both',
+          }}>
+            {/* Panel drag handle */}
+            <div style={{ padding:'10px 0 4px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, cursor:'pointer' }}
+              onClick={() => setSidePanel(null)}>
+              <div style={{ width:36,height:4,borderRadius:2,background:T.border }}/>
+            </div>
+            {/* Panel content */}
+            <div style={{ flex:1, overflowY:'auto', padding:'0 0 env(safe-area-inset-bottom)' }}>
+              <Suspense fallback={<AppLoader/>}>
+                {renderSidePanel()}
+              </Suspense>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Mobile bottom nav ── */}
       {isMobile && (
         <nav style={{ position:'fixed',bottom:0,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.border}`,display:'flex',zIndex:50,paddingBottom:'env(safe-area-inset-bottom)' }}>
           {MOBILE_NAV.map(item => {
-            const active = view === item.id && !psickeOpen;
+            const isPsicke = item.id === 'psicke';
+            const active = isPsicke ? view === 'psicke' : (view === item.id || sidePanel === item.id);
             return (
               <button key={item.id}
-                onClick={() => { setPsickeOpen(false); navTo(item.id); }}
-                style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 4px 8px',border:'none',cursor:'pointer',background:'transparent',color:active?T.accent:T.dim,fontFamily:'inherit',position:'relative',gap:3 }}>
-                <Icon name={item.icon} size={22} color={active ? T.accent : undefined}/>
-                <span style={{ fontSize:10,fontWeight:active?600:400,color:active?T.accent:T.dim }}>{item.label}</span>
+                onClick={() => { setSidePanel(null); navTo(item.id); }}
+                style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:isPsicke?'8px 4px 6px':'10px 4px 8px',border:'none',cursor:'pointer',background:'transparent',color:active?T.accent:T.dim,fontFamily:'inherit',position:'relative',gap:isPsicke?0:3 }}>
+                {isPsicke ? (
+                  <div style={{ width:40,height:40,borderRadius:13,background:active?`linear-gradient(135deg,${T.accent},${T.orange})`:`${T.accent}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,transition:'all 0.2s',boxShadow:active?`0 2px 14px rgba(79,142,247,.5)`:'none' }}>
+                    🧠
+                  </div>
+                ) : (
+                  <>
+                    <Icon name={item.icon} size={22} color={active ? T.accent : undefined}/>
+                    <span style={{ fontSize:10,fontWeight:active?600:400,color:active?T.accent:T.dim }}>{item.label}</span>
+                  </>
+                )}
               </button>
             );
           })}
@@ -442,14 +498,6 @@ function App() {
         )}
       </Suspense>
 
-      {/* ── Psicke AI ── */}
-      <Suspense fallback={null}>
-        <Psicke onGoSettings={() => navTo('settings')} data={data} setData={setData}
-          openFromNav={psickeOpen} onNavClose={() => setPsickeOpen(false)}
-          welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}
-          onRequestNotifPermission={askNotifPermission}/>
-      </Suspense>
-
       {/* ── PWA Install Banner ── */}
       {showInstallBanner && !isInstalled && (
         <div style={{ position:'fixed',bottom:isMobile?72:24,left:'50%',transform:'translateX(-50%)',zIndex:9998,width:'calc(100% - 32px)',maxWidth:380,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:'14px 16px',boxShadow:'0 8px 32px rgba(0,0,0,0.35)',display:'flex',alignItems:'center',gap:12,animation:'sbSlideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
@@ -461,25 +509,6 @@ function App() {
           <button onClick={triggerInstall} style={{ background:T.accent,border:'none',borderRadius:8,padding:'7px 14px',color:'#000',fontSize:12,fontWeight:700,cursor:'pointer',flexShrink:0,whiteSpace:'nowrap' }}>Instalar</button>
           <button onClick={dismissInstallBanner} style={{ background:'none',border:'none',color:T.dim,cursor:'pointer',fontSize:18,padding:'0 2px',flexShrink:0,lineHeight:1 }}>×</button>
         </div>
-      )}
-
-      {/* ── Psicke FAB ── */}
-      {!showWelcome && !psickeOpen && (
-        <button
-          onClick={() => { setPsickeOpen(true); askNotifPermission(); }}
-          style={{ position:'fixed',bottom:isMobile?82:24,right:16,zIndex:200,width:56,height:56,borderRadius:18,
-            background:`linear-gradient(135deg,${T.accent},${T.orange})`,
-            border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
-            boxShadow:`0 4px 20px rgba(79,142,247,.45)`,transition:'transform .15s,box-shadow .15s',fontSize:28 }}
-          onMouseDown={e => e.currentTarget.style.transform='scale(.92)'}
-          onMouseUp={e => e.currentTarget.style.transform='scale(1)'}
-          onTouchStart={e => e.currentTarget.style.transform='scale(.92)'}
-          onTouchEnd={e => e.currentTarget.style.transform='scale(1)'}
-          onMouseEnter={e => e.currentTarget.style.boxShadow=`0 6px 28px rgba(79,142,247,.65)`}
-          onMouseLeave={e => e.currentTarget.style.boxShadow=`0 4px 20px rgba(79,142,247,.45)`}
-        >
-          🧠
-        </button>
       )}
 
       {/* ── Capture Modal ── */}
