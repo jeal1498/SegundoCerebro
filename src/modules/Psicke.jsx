@@ -574,7 +574,7 @@ const stripPsickeJson=(text)=>{
   return out.trim();
 };
 
-const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone,onRequestNotifPermission,asScreen=false,onOpenModule})=>{
+const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone,onRequestNotifPermission,asScreen=false,onOpenModule,expanded=false,onToggleExpand,activeModule})=>{
   const nowTime=()=>new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   const INIT_MSG={role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?',time:nowTime()};
   const [open,setOpen]=useState(false);
@@ -1508,10 +1508,37 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
       {(open||asScreen)&&(
         <div style={{...(asScreen
           ? {display:'flex',flexDirection:'column',height:'100%',background:T.surface}
-          : {position:'fixed',inset:0,zIndex:1000,display:'flex',flexDirection:'column',background:T.surface,animation:'psicke-in 0.28s ease-out both'})}}>
+          : {
+              position:'fixed', left:0, right:0, bottom:0, zIndex:1000,
+              display:'flex', flexDirection:'column',
+              background:T.surface,
+              borderRadius: expanded ? 0 : '20px 20px 0 0',
+              height: expanded ? '100dvh' : '62dvh',
+              boxShadow:'0 -8px 40px rgba(0,0,0,0.35)',
+              transition:'height 0.32s cubic-bezier(0.32,0.72,0,1), border-radius 0.32s ease',
+            })}}>
+
+          {/* Drag handle + expand (only in half-sheet mode) */}
+          {!asScreen && (
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 16px 0',flexShrink:0}}>
+              <button onClick={onToggleExpand}
+                style={{background:'none',border:'none',cursor:'pointer',padding:'4px',color:T.dim,display:'flex',alignItems:'center',opacity:0.7}}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  {expanded
+                    ? <polyline points="6 15 12 9 18 15"/>
+                    : <polyline points="6 9 12 15 18 9"/>}
+                </svg>
+              </button>
+              <div style={{width:36,height:4,borderRadius:2,background:T.border,cursor:'pointer'}} onClick={closePanel}/>
+              <button onClick={closePanel}
+                style={{background:'none',border:'none',cursor:'pointer',padding:'4px',color:T.dim,display:'flex',alignItems:'center',opacity:0.7}}>
+                <Icon name="x" size={18}/>
+              </button>
+            </div>
+          )}
 
           {/* Header */}
-          <div style={{padding:'12px 20px 0',flexShrink:0}}>
+          <div style={{padding:'10px 20px 0',flexShrink:0}}>
               <div style={{display:'none'}}/>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -1522,7 +1549,10 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
                     <div style={{color:T.text,fontWeight:700,fontSize:15,fontFamily:"'Playfair Display',serif",lineHeight:1}}>Psicke</div>
                     <div style={{display:'flex',alignItems:'center',gap:5,marginTop:2}}>
                       <span style={{width:6,height:6,borderRadius:'50%',background:'#34d399',display:'inline-block',boxShadow:'0 0 6px #34d39966'}}/>
-                      <span style={{color:T.muted,fontSize:11}}>Tu IA personal · siempre aquí</span>
+                      {activeModule
+                        ? <span style={{color:T.muted,fontSize:11}}>Contexto: <strong style={{color:T.accent,fontWeight:600}}>{activeModule}</strong></span>
+                        : <span style={{color:T.muted,fontSize:11}}>Tu IA personal · siempre aquí</span>
+                      }
                     </div>
                   </div>
                 </div>
@@ -1535,10 +1565,6 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
                     title="Configurar API Keys"
                     style={{background:effectiveKey?'none':`${T.orange}22`,border:`1px solid ${effectiveKey?T.border:T.orange}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:effectiveKey?T.dim:T.orange,fontSize:11,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>
                     🔑{!effectiveKey&&<span style={{fontWeight:600}}>API Key</span>}
-                  </button>
-                  <button onClick={()=>closePanel()}
-                    style={{background:'none',border:'none',cursor:'pointer',color:T.muted,display:asScreen?'none':'flex',padding:4}}>
-                    <Icon name="x" size={20}/>
                   </button>
                 </div>
               </div>

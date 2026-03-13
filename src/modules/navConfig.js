@@ -40,7 +40,6 @@ const NAV=NAV_SECTIONS.flatMap(s=>s.items);
 const MOBILE_NAV=[
   {id:'dashboard',    label:'Inicio',  icon:'home'},
   {id:'inbox',        label:'Inbox',   icon:'inbox'},
-  {id:'psicke',       label:'Psicke',  icon:'brain'},
   {id:'finance',      label:'Finanzas',icon:'money'},
   {id:'areas',        label:'Áreas',   icon:'grid'},
 ];
