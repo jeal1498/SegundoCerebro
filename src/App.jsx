@@ -48,11 +48,61 @@ import { handleOAuthCallback, isConnected as isGCalConnected } from './utils/goo
 import { uid, today } from './utils/helpers.js';
 import { initData } from './context/initialData.js';
 
+// ── Module label map for Psicke context bar ──
+const MODULE_LABELS = {
+  dashboard:'Inicio', areas:'Áreas', objectives:'Objetivos', projects:'Proyectos',
+  notes:'Notas', finance:'Finanzas', inbox:'Inbox', habits:'Hábitos',
+  journal:'Journal', books:'Libros', shopping:'Compras', education:'Educación',
+  health:'Salud', relaciones:'Relaciones', sideprojects:'Side Projects',
+  trabajo:'Trabajo', desarrollo:'Desarrollo', hogar:'Hogar', coche:'Vehículos',
+  entretenimiento:'Entretenimiento', mascotas:'Mascotas', viajes:'Viajes',
+  nutricion:'Nutrición', sueno:'Sueño', settings:'Ajustes',
+};
+
+// ── PsickeBar — barra persistente encima del nav ──
+function PsickeBar({ onOpen, hasKey, activeModule }) {
+  const label = MODULE_LABELS[activeModule] || '';
+  return (
+    <button
+      onClick={onOpen}
+      style={{
+        position: 'fixed', bottom: 'calc(60px + env(safe-area-inset-bottom))',
+        left: 12, right: 12, zIndex: 49,
+        display: 'flex', alignItems: 'center', gap: 10,
+        background: T.surface,
+        border: `1px solid ${T.borderLight}`,
+        borderRadius: 16,
+        padding: '10px 14px',
+        boxShadow: '0 -2px 20px rgba(0,0,0,0.18)',
+        cursor: 'pointer',
+        fontFamily: "'Plus Jakarta Sans',sans-serif",
+        transition: 'box-shadow 0.2s',
+      }}
+    >
+      <div style={{ width:30,height:30,borderRadius:9,background:`linear-gradient(135deg,${T.accent},${T.orange})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0 }}>
+        🧠
+      </div>
+      <span style={{ flex:1, textAlign:'left', fontSize:13, color:T.dim, fontWeight:400 }}>
+        {label ? `Pregúntame sobre ${label}…` : 'Pregúntame algo…'}
+      </span>
+      {!hasKey && (
+        <span style={{ fontSize:10,fontWeight:700,color:T.orange,background:`${T.orange}18`,padding:'2px 7px',borderRadius:8 }}>
+          Sin key
+        </span>
+      )}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="18 15 12 9 6 15"/>
+      </svg>
+    </button>
+  );
+}
+
 function App() {
-  const [view, setView]               = useState('psicke');
+  const [view, setView]               = useState('dashboard');
   const [viewHint, setViewHint]       = useState(null);
   const [data, setData]               = useState(null);
-  const [sidePanel, setSidePanel]     = useState(null);  // módulo abierto como panel
+  const [psickeOpen, setPsickeOpen]   = useState(false);
+  const [psickeExpanded, setPsickeExpanded] = useState(false);
   const [welcomePsicke, setWelcomePsicke] = useState(null);
   const [showSearch, setShowSearch]   = useState(false);
   const [hasKey, setHasKey]           = useState(() => { migrateLegacyKeys(); return hasAnyKey(); });
@@ -142,14 +192,15 @@ function App() {
     history.pushState(null, '', window.location.href);
     const onPop = () => {
       history.pushState(null, '', window.location.href);
-      if (sidePanel) { setSidePanel(null); return; }
+      if (psickeExpanded) { setPsickeExpanded(false); return; }
+      if (psickeOpen) { setPsickeOpen(false); return; }
       if (showSearch) { setShowSearch(false); return; }
-      if (view !== 'psicke') { navTo('psicke'); }
+      if (view !== 'dashboard') { navTo('dashboard'); }
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, sidePanel, showSearch]);
+  }, [view, psickeOpen, psickeExpanded, showSearch]);
 
   // ── PWA + SW ──
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -210,27 +261,20 @@ function App() {
 
   // ── Navigation ──
   const navigate = (v, hint = null) => {
-    if (v === 'psicke') { setSidePanel(null); setView('psicke'); return; }
-    if (v === 'settings') { setSidePanel(null); setView('settings'); return; }
-    if (view === 'psicke') { setSidePanel(v); setViewHint(hint); return; }
     if (v === view) { setViewHint(hint); return; }
     setTransitioning(true);
     setTimeout(() => { setView(v); setViewHint(hint); setTransitioning(false); }, 120);
   };
   const navTo = (v) => {
-    if (v === 'psicke') { setSidePanel(null); setView('psicke'); return; }
-    if (v === 'settings') { setSidePanel(null); setView('settings'); return; }
-    if (view === 'psicke') { setSidePanel(v); return; }
     if (v === view) return;
     setTransitioning(true);
     setTimeout(() => { setView(v); setViewHint(null); setTransitioning(false); }, 120);
   };
   const consumeHint = useCallback(() => setViewHint(null), []);
   const backToDashboard = useCallback(() => {
-    if (view === 'psicke') { setSidePanel(null); return; }
     setTransitioning(true);
-    setTimeout(() => { setView('psicke'); setViewHint(null); setTransitioning(false); }, 120);
-  }, [view]);
+    setTimeout(() => { setView('dashboard'); setViewHint(null); setTransitioning(false); }, 120);
+  }, []);
 
   const CAPTURE_DEST = [
     {id:'inbox', label:'Inbox',   emoji:'📥'},
@@ -268,48 +312,40 @@ function App() {
   if (!data) return <AppLoader />;
 
   const inboxCount = data.inbox.filter(i => !i.processed).length;
+  const props = { data, setData, isMobile };
 
   // ── View renderer ──
-  const renderSidePanel = () => {
-    const onBack = () => setSidePanel(null);
-    const p = { data, setData, isMobile };
-    switch (sidePanel) {
-      case 'dashboard':    return <Dashboard {...p} onNavigate={navigate} />;
-      case 'areas':        return <Areas data={data} isMobile={isMobile} onNavigate={navigate} />;
-      case 'areaDetail':   return <AreaDetail {...p} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} onBack={onBack} />;
-      case 'objectives':   return <Objectives {...p} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} />;
-      case 'projects':     return <ProjectsAndTasks {...p} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} />;
-      case 'notes':        return <Notes {...p} viewHint={viewHint} onConsumeHint={consumeHint} />;
-      case 'finance':      return <Finance {...p} onBack={onBack} />;
-      case 'inbox':        return <Inbox {...p} />;
-      case 'habits':       return <HabitTracker {...p} />;
-      case 'journal':      return <Journal {...p} />;
-      case 'books':        return <Books {...p} />;
-      case 'shopping':     return <Shopping {...p} />;
-      case 'education':    return <Education {...p} />;
-      case 'health':       return <Health {...p} onBack={onBack} />;
-      case 'relaciones':   return <Relaciones {...p} onBack={onBack} />;
-      case 'sideprojects': return <SideProjects {...p} onBack={onBack} />;
-      case 'trabajo':      return <TrabajoEmbed isMobile={isMobile} onBack={onBack} />;
-      case 'desarrollo':   return <DesarrolloPersonal {...p} onBack={onBack} />;
-      case 'hogar':        return <Hogar {...p} onBack={onBack} />;
-      case 'coche':        return <Vehiculos {...p} onBack={onBack} />;
-      case 'entretenimiento': return <Entretenimiento {...p} onBack={onBack} />;
-      case 'mascotas':     return <Mascotas {...p} onBack={onBack} />;
-      case 'viajes':       return <Viajes {...p} onBack={onBack} />;
-      case 'nutricion':    return <Nutricion {...p} onBack={onBack} />;
-      case 'sueno':        return <Sueno {...p} onBack={onBack} />;
-      default: return null;
-    }
-  };
-
   const renderView = () => {
-    if (view === 'psicke') return null; // Psicke se renderiza directamente en el layout
     switch (view) {
-      case 'settings': return (
+      case 'dashboard':    return <Dashboard {...props} onNavigate={navigate} />;
+      case 'areas':        return <Areas data={data} isMobile={isMobile} onNavigate={navigate} />;
+      case 'areaDetail':   return <AreaDetail {...props} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} onBack={() => navTo('areas')} />;
+      case 'objectives':   return <Objectives {...props} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} />;
+      case 'projects':     return <ProjectsAndTasks {...props} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate} />;
+      case 'notes':        return <Notes {...props} viewHint={viewHint} onConsumeHint={consumeHint} />;
+      case 'finance':      return <Finance {...props} onBack={backToDashboard} />;
+      case 'inbox':        return <Inbox {...props} />;
+      case 'habits':       return <HabitTracker {...props} />;
+      case 'journal':      return <Journal {...props} />;
+      case 'books':        return <Books {...props} />;
+      case 'shopping':     return <Shopping {...props} />;
+      case 'education':    return <Education {...props} />;
+      case 'health':       return <Health {...props} onBack={backToDashboard} />;
+      case 'relaciones':   return <Relaciones {...props} onBack={backToDashboard} />;
+      case 'sideprojects': return <SideProjects {...props} onBack={backToDashboard} />;
+      case 'trabajo':      return <TrabajoEmbed isMobile={isMobile} onBack={backToDashboard} />;
+      case 'desarrollo':   return <DesarrolloPersonal {...props} onBack={backToDashboard} />;
+      case 'hogar':        return <Hogar {...props} onBack={backToDashboard} />;
+      case 'coche':        return <Vehiculos {...props} onBack={backToDashboard} />;
+      case 'entretenimiento': return <Entretenimiento {...props} onBack={backToDashboard} />;
+      case 'mascotas':     return <Mascotas {...props} onBack={backToDashboard} />;
+      case 'viajes':       return <Viajes {...props} onBack={backToDashboard} />;
+      case 'nutricion':    return <Nutricion {...props} onBack={backToDashboard} />;
+      case 'sueno':        return <Sueno {...props} onBack={backToDashboard} />;
+      case 'settings':     return (
         <Settings isMobile={isMobile} data={data} setData={setData}
           viewHint={viewHint} onConsumeHint={consumeHint}
-          onOpenPsicke={() => navTo('psicke')}
+          onOpenPsicke={() => setPsickeOpen(true)}
           onInstall={(!isInstalled && installPrompt) ? triggerInstall : null}
           isInstalled={isInstalled} />
       );
@@ -364,7 +400,7 @@ function App() {
               <div key={section.label} style={{ marginBottom:4 }}>
                 <div style={{ fontSize:9,fontWeight:700,color:T.dim,letterSpacing:1.2,textTransform:'uppercase',padding:'8px 12px 4px' }}>{section.label}</div>
                 {section.items.map(item => {
-                  const active = view === item.id || sidePanel === item.id;
+                  const active = view === item.id;
                   const badge  = item.id === 'inbox' && inboxCount > 0 ? inboxCount : null;
                   return (
                     <button key={item.id} onClick={() => navTo(item.id)}
@@ -410,81 +446,25 @@ function App() {
       )}
 
       {/* ── Main content ── */}
-      {view === 'psicke' ? (
-        /* Psicke ocupa toda la pantalla principal */
-        <div style={{ flex:1, display:'flex', flexDirection:'column', minHeight:0, overflow:'hidden', paddingBottom: isMobile ? 'calc(60px + env(safe-area-inset-bottom))' : 0 }}>
+      <main style={{ flex:1,overflowY:'auto',padding:isMobile?'16px 16px 140px':'28px',minHeight:0,marginTop:isOnline?0:28 }}>
+        <div style={{ opacity:transitioning?0:1,transform:transitioning?'translateY(6px)':'translateY(0)',transition:'opacity 0.12s ease,transform 0.12s ease' }}>
           <Suspense fallback={<AppLoader/>}>
-            <Psicke
-              asScreen
-              onGoSettings={() => navTo('settings')}
-              data={data} setData={setData}
-              openFromNav={false} onNavClose={() => {}}
-              welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}
-              onRequestNotifPermission={askNotifPermission}
-              onOpenModule={(moduleId) => setSidePanel(moduleId)}
-            />
+            {renderView()}
           </Suspense>
         </div>
-      ) : (
-        <main style={{ flex:1,overflowY:'auto',padding:isMobile?'16px 16px 90px':'28px',minHeight:0,marginTop:isOnline?0:28 }}>
-          <div style={{ opacity:transitioning?0:1,transform:transitioning?'translateY(6px)':'translateY(0)',transition:'opacity 0.12s ease,transform 0.12s ease' }}>
-            <Suspense fallback={<AppLoader/>}>
-              {renderView()}
-            </Suspense>
-          </div>
-        </main>
-      )}
-
-      {/* ── Slide-up panel (módulos sobre Psicke) ── */}
-      {view === 'psicke' && sidePanel && (
-        <div
-          onClick={e => { if (e.target === e.currentTarget) setSidePanel(null); }}
-          style={{ position:'fixed',inset:0,zIndex:300,background:'rgba(0,0,0,0.55)',backdropFilter:'blur(4px)',WebkitBackdropFilter:'blur(4px)' }}
-        >
-          <div style={{
-            position:'absolute', bottom:0, left:0, right:0,
-            height:'92dvh',
-            background:T.bg,
-            borderRadius:'20px 20px 0 0',
-            display:'flex', flexDirection:'column',
-            overflow:'hidden',
-            animation:'sbPanelUp 0.3s cubic-bezier(0.32,0.72,0,1) both',
-          }}>
-            {/* Panel drag handle */}
-            <div style={{ padding:'10px 0 4px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, cursor:'pointer' }}
-              onClick={() => setSidePanel(null)}>
-              <div style={{ width:36,height:4,borderRadius:2,background:T.border }}/>
-            </div>
-            {/* Panel content */}
-            <div style={{ flex:1, overflowY:'auto', padding:'0 0 env(safe-area-inset-bottom)' }}>
-              <Suspense fallback={<AppLoader/>}>
-                {renderSidePanel()}
-              </Suspense>
-            </div>
-          </div>
-        </div>
-      )}
+      </main>
 
       {/* ── Mobile bottom nav ── */}
       {isMobile && (
         <nav style={{ position:'fixed',bottom:0,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.border}`,display:'flex',zIndex:50,paddingBottom:'env(safe-area-inset-bottom)' }}>
           {MOBILE_NAV.map(item => {
-            const isPsicke = item.id === 'psicke';
-            const active = isPsicke ? view === 'psicke' : (view === item.id || sidePanel === item.id);
+            const active = view === item.id && !psickeOpen;
             return (
               <button key={item.id}
-                onClick={() => { setSidePanel(null); navTo(item.id); }}
-                style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:isPsicke?'8px 4px 6px':'10px 4px 8px',border:'none',cursor:'pointer',background:'transparent',color:active?T.accent:T.dim,fontFamily:'inherit',position:'relative',gap:isPsicke?0:3 }}>
-                {isPsicke ? (
-                  <div style={{ width:40,height:40,borderRadius:13,background:active?`linear-gradient(135deg,${T.accent},${T.orange})`:`${T.accent}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,transition:'all 0.2s',boxShadow:active?`0 2px 14px rgba(79,142,247,.5)`:'none' }}>
-                    🧠
-                  </div>
-                ) : (
-                  <>
-                    <Icon name={item.icon} size={22} color={active ? T.accent : undefined}/>
-                    <span style={{ fontSize:10,fontWeight:active?600:400,color:active?T.accent:T.dim }}>{item.label}</span>
-                  </>
-                )}
+                onClick={() => { setPsickeOpen(false); setPsickeExpanded(false); navTo(item.id); }}
+                style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 4px 8px',border:'none',cursor:'pointer',background:'transparent',color:active?T.accent:T.dim,fontFamily:'inherit',position:'relative',gap:3 }}>
+                <Icon name={item.icon} size={22} color={active ? T.accent : undefined}/>
+                <span style={{ fontSize:10,fontWeight:active?600:400,color:active?T.accent:T.dim }}>{item.label}</span>
               </button>
             );
           })}
@@ -497,6 +477,28 @@ function App() {
           <GlobalSearch data={data} onNavigate={(v, h) => { navigate(v, h); }} onClose={() => setShowSearch(false)}/>
         )}
       </Suspense>
+
+      {/* ── Psicke — contextual half-sheet ── */}
+      <Suspense fallback={null}>
+        <Psicke
+          onGoSettings={() => navTo('settings')}
+          data={data} setData={setData}
+          openFromNav={psickeOpen} onNavClose={() => { setPsickeOpen(false); setPsickeExpanded(false); }}
+          welcomeData={welcomePsicke} onWelcomeDone={() => setWelcomePsicke(null)}
+          onRequestNotifPermission={askNotifPermission}
+          expanded={psickeExpanded} onToggleExpand={() => setPsickeExpanded(e => !e)}
+          activeModule={view}
+        />
+      </Suspense>
+
+      {/* ── Psicke persistent input bar (always above bottom nav) ── */}
+      {isMobile && !showWelcome && !psickeOpen && (
+        <PsickeBar
+          onOpen={() => { setPsickeOpen(true); setPsickeExpanded(false); askNotifPermission(); }}
+          hasKey={hasKey}
+          activeModule={view}
+        />
+      )}
 
       {/* ── PWA Install Banner ── */}
       {showInstallBanner && !isInstalled && (
