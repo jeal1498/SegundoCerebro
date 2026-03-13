@@ -138,32 +138,32 @@ const SideProjects = ({data,setData,isMobile,onBack}) => {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16}}>
         <div>
           <h2 style={{margin:0,color:T.text,fontSize:isMobile?18:20,fontWeight:700}}>🚀 Side Projects</h2>
-          <div style={{fontSize:12,color:T.muted,marginTop:2}}>{sideProjects.length} proyectos · {pendingTasks.length} tareas pendientes</div>
+          <div style={{fontSize:12,color:T.muted,marginTop:4}}>{sideProjects.length} proyectos · {pendingTasks.length} tareas pendientes</div>
         </div>
         <Btn size="sm" onClick={()=>{setEditingProj(null);setProjForm({name:'',description:'',status:'idea',stack:'',url:'',repoUrl:'',platform:'',revenue:0,costs:0,startDate:today(),color:''});setModalProj(true);}}><Icon name="plus" size={13}/>Proyecto</Btn>
       </div>
 
       {/* Summary cards */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,padding:'16px 20px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:20}}>
         {[
           {label:'Activos',val:activeProjs.length,color:T.accent,icon:'⚡'},
           {label:'Lanzados',val:launchedProjs.length,color:T.green,icon:'🚀'},
           {label:'Pendientes',val:pendingTasks.length,color:T.orange,icon:'📋'},
           {label:'Hoy',val:todayTasks.length,color:T.red,icon:'🔥'},
         ].map(s=>(
-          <Card key={s.label} style={{textAlign:'center',padding:12}}>
-            <div style={{fontSize:16,marginBottom:4}}>{s.icon}</div>
-            <div style={{fontSize:isMobile?20:24,fontWeight:700,color:s.color}}>{s.val}</div>
-            <div style={{fontSize:11,color:T.muted,marginTop:2}}>{s.label}</div>
+          <Card key={s.label} style={{textAlign:'center',padding:'10px 4px'}}>
+            <div style={{fontSize:18,marginBottom:4}}>{s.icon}</div>
+            <div style={{fontSize:isMobile?18:22,fontWeight:700,color:s.color,lineHeight:1}}>{s.val}</div>
+            <div style={{fontSize:10,color:T.muted,marginTop:4,fontWeight:500}}>{s.label}</div>
           </Card>
         ))}
       </div>
 
-      {/* Tabs */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8,marginBottom:16}}>
+      {/* Tabs — scroll horizontal en móvil */}
+      <div style={{display:'flex',gap:8,marginBottom:16,overflowX:'auto',paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
         {[{id:'proyectos',label:'🗂️ Proyectos'},{id:'tareas',label:'✅ Tareas'},{id:'hitos',label:'🏆 Hitos'},{id:'tiempo',label:'⏱️ Tiempo'},{id:'roadmap',label:'🗺️ Roadmap'}].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)}
-            style={{padding:'7px 8px',borderRadius:10,border:`1px solid ${tab===t.id?T.accent:T.border}`,background:tab===t.id?`${T.accent}18`:'transparent',color:tab===t.id?T.accent:T.muted,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit',textAlign:'center',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+            style={{padding:'8px 16px',borderRadius:10,border:`1px solid ${tab===t.id?T.accent:T.border}`,background:tab===t.id?`${T.accent}18`:'transparent',color:tab===t.id?T.accent:T.muted,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0}}>
             {t.label}
           </button>
         ))}
