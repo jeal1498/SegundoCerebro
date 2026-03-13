@@ -112,10 +112,10 @@ const DesarrolloPersonal = ({data,setData,isMobile,onBack}) => {
       <PageHeader title="Desarrollo Personal" subtitle="Aprende, reflexiona, crece 🧠" isMobile={isMobile} onBack={onBack}/>
 
       {/* Tab nav */}
-      <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto',paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
         {[['learning','📚 Aprendizajes'],['pomodoro','⏱ Pomodoro'],['ideas','💡 Ideas'],['retro','📋 Retro']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
-            style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${tab===id?T.purple:T.border}`,background:tab===id?`${T.purple}18`:'transparent',color:tab===id?T.purple:T.muted,cursor:'pointer',fontSize:12,fontWeight:tab===id?700:400,fontFamily:'inherit',whiteSpace:'nowrap'}}>
+            style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${tab===id?T.purple:T.border}`,background:tab===id?`${T.purple}18`:'transparent',color:tab===id?T.purple:T.muted,cursor:'pointer',fontSize:12,fontWeight:tab===id?700:400,fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0}}>
             {label}
           </button>
         ))}

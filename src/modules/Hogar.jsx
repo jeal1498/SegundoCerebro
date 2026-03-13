@@ -241,10 +241,10 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
       )}
 
       {/* ── Tabs ── */}
-      <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:8,marginBottom:16,overflowX:'auto',paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
         {[{id:'mantenimientos',label:'🔧 Mantenimientos'},{id:'documentos',label:'📄 Documentos'},{id:'contactos',label:'📞 Contactos'},{id:'farmacia',label:'💊 Farmacia'},{id:'coche',label:'🚗 Coche'}].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)}
-            style={{padding:'7px 16px',borderRadius:10,border:`1px solid ${tab===t.id?T.accent:T.border}`,background:tab===t.id?`${T.accent}18`:'transparent',color:tab===t.id?T.accent:T.muted,cursor:'pointer',fontSize:13,fontWeight:tab===t.id?600:400,fontFamily:'inherit'}}>
+            style={{padding:'7px 16px',borderRadius:10,border:`1px solid ${tab===t.id?T.accent:T.border}`,background:tab===t.id?`${T.accent}18`:'transparent',color:tab===t.id?T.accent:T.muted,cursor:'pointer',fontSize:13,fontWeight:tab===t.id?600:400,fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0}}>
             {t.label}
           </button>
         ))}

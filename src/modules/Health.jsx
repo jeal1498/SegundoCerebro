@@ -202,10 +202,10 @@ const Health = ({data,setData,isMobile,onBack}) => {
       </div>
 
       {/* Tab nav */}
-      <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto',paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
         {[['trends','📈 Tendencias'],['workouts','🏃 Entrenos'],['summary','📊 Resumen'],['goals','🎯 Metas'],['meds','💊 Medicamentos'],['medico','🩺 Médico']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
-            style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${tab===id?T.green:T.border}`,background:tab===id?`${T.green}18`:'transparent',color:tab===id?T.green:T.muted,cursor:'pointer',fontSize:12,fontWeight:tab===id?700:400,fontFamily:'inherit',whiteSpace:'nowrap'}}>
+            style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${tab===id?T.green:T.border}`,background:tab===id?`${T.green}18`:'transparent',color:tab===id?T.green:T.muted,cursor:'pointer',fontSize:12,fontWeight:tab===id?700:400,fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0}}>
             {label}
           </button>
         ))}
@@ -214,7 +214,7 @@ const Health = ({data,setData,isMobile,onBack}) => {
       {/* ── TRENDS ── */}
       {tab==='trends'&&(
         <Card style={{padding:18}}>
-          <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+          <div style={{display:'flex',gap:6,marginBottom:16,overflowX:'auto',paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
             {Object.entries(METRIC_CFG).map(([k,c])=>(
               <button key={k} onClick={()=>setMetric(k)}
                 style={{padding:'5px 12px',borderRadius:9,border:`1px solid ${metric===k?c.color:T.border}`,background:metric===k?`${c.color}18`:'transparent',color:metric===k?c.color:T.muted,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
