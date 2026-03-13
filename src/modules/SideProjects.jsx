@@ -135,10 +135,9 @@ const SideProjects = ({data,setData,isMobile,onBack}) => {
   return (
     <div style={{maxWidth:800,margin:'0 auto',padding:isMobile?'0 0 80px':'0 0 40px'}}>
       {/* Header */}
-      <div style={{display:'flex',alignItems:'center',gap:12,padding:'16px 20px',borderBottom:`1px solid ${T.border}`}}>
-        {isMobile&&<button onClick={onBack} style={{background:'none',border:'none',color:T.muted,cursor:'pointer',padding:4}}><Icon name="chevron-left" size={20}/></button>}
-        <div style={{flex:1}}>
-          <div style={{fontSize:18,fontWeight:700,color:T.text,letterSpacing:-0.5}}>🚀 Side Projects</div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16}}>
+        <div>
+          <h2 style={{margin:0,color:T.text,fontSize:isMobile?18:20,fontWeight:700}}>🚀 Side Projects</h2>
           <div style={{fontSize:12,color:T.muted,marginTop:2}}>{sideProjects.length} proyectos · {pendingTasks.length} tareas pendientes</div>
         </div>
         <Btn size="sm" onClick={()=>{setEditingProj(null);setProjForm({name:'',description:'',status:'idea',stack:'',url:'',repoUrl:'',platform:'',revenue:0,costs:0,startDate:today(),color:''});setModalProj(true);}}><Icon name="plus" size={13}/>Proyecto</Btn>

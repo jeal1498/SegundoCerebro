@@ -24,11 +24,7 @@ const TrabajoEmbed = ({isMobile,onBack}) => {
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:fullscreen?0:14,
       ...(fullscreen?{padding:'10px 16px',background:T.surface,borderBottom:`1px solid ${T.border}`,flexShrink:0}:{})}}>
       <div style={{display:'flex',alignItems:'center',gap:8}}>
-        {onBack&&!fullscreen&&(
-          <button onClick={onBack} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:10,padding:'6px 10px',cursor:'pointer',color:T.muted,display:'flex',alignItems:'center',gap:4,fontFamily:'inherit',fontSize:12}}>
-            <Icon name="back" size={16}/><span style={{fontSize:12,fontWeight:500}}>Áreas</span>
-          </button>
-        )}
+
         <div>
           <h2 style={{margin:0,color:T.text,fontSize:isMobile?18:20,fontWeight:700}}>💼 Trabajo</h2>
           {!fullscreen&&<p style={{color:T.muted,fontSize:13,margin:'4px 0 0'}}>ControlCheck — tu app de trabajo</p>}
