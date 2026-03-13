@@ -42,36 +42,45 @@ const Areas = ({data,isMobile,onNavigate}) => {
 
   return (
     <div>
-      <PageHeader title="Áreas de vida" subtitle="Los grandes pilares de tu vida." isMobile={isMobile}/>
-      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(auto-fill,minmax(180px,1fr))',gap:12}}>
+      {/* ── Título ── */}
+      <div style={{marginBottom:20}}>
+        <h2 style={{margin:0,color:T.text,fontSize:20,fontWeight:700}}>Áreas de vida</h2>
+        <p style={{color:T.muted,fontSize:12,margin:'4px 0 0'}}>Los grandes pilares de tu vida.</p>
+      </div>
+
+      {/* ── Áreas cards — fila compacta ── */}
+      <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:28}}>
         {data.areas.map(a=>{
           const objCount=data.objectives.filter(o=>o.areaId===a.id).length;
           const projCount=data.projects.filter(p=>p.areaId===a.id).length;
           return (
-            <Card key={a.id} onClick={()=>onNavigate&&onNavigate('areaDetail',a.id)}
-              style={{borderLeft:`4px solid ${a.color}`,position:'relative',cursor:'pointer'}}>
-              <div style={{fontSize:isMobile?24:28,marginBottom:8}}>{a.icon}</div>
-              <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:4}}>{a.name}</div>
-              <div style={{display:'flex',gap:8,marginBottom:6}}>
-                <span style={{fontSize:11,color:T.muted,background:T.surface2,padding:'2px 8px',borderRadius:20}}>{objCount} obj</span>
-                <span style={{fontSize:11,color:T.muted,background:T.surface2,padding:'2px 8px',borderRadius:20}}>{projCount} proy</span>
+            <div key={a.id} onClick={()=>onNavigate&&onNavigate('areaDetail',a.id)}
+              style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',background:T.surface,border:`1px solid ${T.border}`,borderLeft:`4px solid ${a.color}`,borderRadius:12,cursor:'pointer'}}>
+              <div style={{fontSize:26,flexShrink:0,width:36,textAlign:'center'}}>{a.icon}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:T.text,fontWeight:600,fontSize:14}}>{a.name}</div>
+                <div style={{display:'flex',gap:6,marginTop:3}}>
+                  <span style={{fontSize:10,color:T.muted}}>{objCount} objetivos</span>
+                  <span style={{color:T.dim,fontSize:10}}>·</span>
+                  <span style={{fontSize:10,color:T.muted}}>{projCount} proyectos</span>
+                </div>
               </div>
-              <div style={{fontSize:10,color:T.accent,fontWeight:500}}>Ver detalle →</div>
-            </Card>
+              <div style={{color:T.accent,fontSize:16,flexShrink:0}}>›</div>
+            </div>
           );
         })}
       </div>
 
       {/* ── Módulos ── */}
       {MODULES.map(section=>(
-        <div key={section.label} style={{marginTop:28}}>
-          <div style={{fontSize:10,fontWeight:700,color:T.dim,letterSpacing:1.4,textTransform:'uppercase',marginBottom:10}}>{section.label}</div>
+        <div key={section.label} style={{marginBottom:24}}>
+          <div style={{fontSize:10,fontWeight:700,color:T.dim,letterSpacing:1.4,textTransform:'uppercase',marginBottom:10,paddingLeft:2}}>{section.label}</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
             {section.items.map(mod=>(
               <button key={mod.id} onClick={()=>onNavigate&&onNavigate(mod.id)}
-                style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,padding:'14px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,cursor:'pointer',fontFamily:'inherit',transition:'all 0.15s'}}>
-                <span style={{fontSize:24}}>{mod.emoji}</span>
-                <span style={{fontSize:11,fontWeight:500,color:T.text,textAlign:'center',lineHeight:1.2}}>{mod.name}</span>
+                style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8,padding:'16px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,cursor:'pointer',fontFamily:'inherit',minHeight:72}}>
+                <span style={{fontSize:26,lineHeight:1}}>{mod.emoji}</span>
+                <span style={{fontSize:11,fontWeight:500,color:T.text,textAlign:'center',lineHeight:1.3,wordBreak:'break-word'}}>{mod.name}</span>
               </button>
             ))}
           </div>
@@ -164,7 +173,7 @@ const AreaDetail = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate,onB
       </div>
 
       {/* Quick nav */}
-      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:8,marginBottom:20,overflowX:'auto',paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
         <Btn size="sm" onClick={()=>onNavigate&&onNavigate('objectives',`area:${areaId}`)}><Icon name="target" size={12}/>Objetivos ({areaObjectives.length})</Btn>
         <Btn size="sm" onClick={()=>onNavigate&&onNavigate('projects',areaProjects[0]?`obj:${areaProjects[0].objectiveId}`:null)}><Icon name="folder" size={12}/>Proyectos ({areaProjects.length})</Btn>
       </div>
