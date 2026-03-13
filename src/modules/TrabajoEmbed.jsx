@@ -10,7 +10,7 @@ import { Ring, BalanceSparkline, HabitHeatmap, Sparkline, BalanceBarChart, Metri
 const TrabajoEmbed = ({isMobile,onBack}) => {
   const [loaded,setLoaded]     = useState(false);
   const [error,setError]       = useState(false);
-  const [fullscreen,setFullscreen] = useState(false);
+  const [fullscreen,setFullscreen] = useState(true);
   const URL = 'https://jeal1498.github.io/AppWeb-ControlCheck/index.html';
 
   // close fullscreen on Escape
