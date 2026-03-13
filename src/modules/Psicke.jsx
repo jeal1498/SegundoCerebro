@@ -574,7 +574,7 @@ const stripPsickeJson=(text)=>{
   return out.trim();
 };
 
-const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone,onRequestNotifPermission})=>{
+const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWelcomeDone,onRequestNotifPermission,asScreen=false,onOpenModule})=>{
   const nowTime=()=>new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   const INIT_MSG={role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?',time:nowTime()};
   const [open,setOpen]=useState(false);
@@ -609,7 +609,7 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
     }, 600);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[welcomeData]);
-  const closePanel=()=>{setOpen(false);onNavClose&&onNavClose();};
+  const closePanel=()=>{if(asScreen)return;setOpen(false);onNavClose&&onNavClose();};
   const [showSugg,setShowSugg]=useState(true);
   const [msgs,setMsgs]=useState([INIT_MSG]);
   const [welcomeAreas,setWelcomeAreas]=useState(null); // areas shown as chips after welcome msg
@@ -1464,6 +1464,13 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
         setData(d=>({...d,...delta}));
       }
       const finalContent=display+(savedLabels.length?'\n\n✅ '+savedLabels.join('\n✅ '):'');
+      // Suggest opening relevant module after actions
+      if(onOpenModule && savedLabels.length>0){
+        const intents=detectIntent(userMsg);
+        const MAP={finanzas:'finance',salud:'health',coche:'coche',hogar:'hogar',relaciones:'relaciones',proyectos:'sideprojects',sueno:'sueno',compras:'shopping',entretenimiento:'entretenimiento',mascotas:'mascotas',viajes:'viajes',libros:'books',desarrollo:'desarrollo',habitos:'habits',nutricion:'nutricion',tareas:'projects',notas:'notes'};
+        const first=[...intents][0];
+        if(first&&MAP[first]) setTimeout(()=>onOpenModule(MAP[first]),800);
+      }
       saveMsgs([...next,{role:'assistant',content:finalContent,time:nowTime()}]);
     }catch(e){
       const msg=e.message==='Failed to fetch'
@@ -1498,9 +1505,10 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
       `}</style>
 
       {/* CHAT PANEL */}
-      {open&&(
-        <div style={{position:'fixed',inset:0,zIndex:1000,display:'flex',flexDirection:'column',
-          background:T.surface,animation:'psicke-in 0.28s ease-out both'}}>
+      {(open||asScreen)&&(
+        <div style={{...(asScreen
+          ? {display:'flex',flexDirection:'column',height:'100%',background:T.surface}
+          : {position:'fixed',inset:0,zIndex:1000,display:'flex',flexDirection:'column',background:T.surface,animation:'psicke-in 0.28s ease-out both'})}}>
 
           {/* Header */}
           <div style={{padding:'12px 20px 0',flexShrink:0}}>
@@ -1529,7 +1537,7 @@ const Psicke=({onGoSettings,data,setData,openFromNav,onNavClose,welcomeData,onWe
                     🔑{!effectiveKey&&<span style={{fontWeight:600}}>API Key</span>}
                   </button>
                   <button onClick={()=>closePanel()}
-                    style={{background:'none',border:'none',cursor:'pointer',color:T.muted,display:'flex',padding:4}}>
+                    style={{background:'none',border:'none',cursor:'pointer',color:T.muted,display:asScreen?'none':'flex',padding:4}}>
                     <Icon name="x" size={20}/>
                   </button>
                 </div>
