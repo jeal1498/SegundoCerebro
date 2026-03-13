@@ -65,14 +65,8 @@ const Card = ({children,style={},onClick}) => (
 const PageHeader = ({title,subtitle,action,isMobile,onBack}) => (
   <div style={{marginBottom:20}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
-      {/* Back button */}
-      {onBack&&(
-        <button onClick={onBack} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:10,padding:'6px 10px',cursor:'pointer',color:T.muted,display:'flex',alignItems:'center',gap:4,fontFamily:'inherit',fontSize:12,flexShrink:0}}>
-          <Icon name="back" size={16}/><span style={{fontSize:12,fontWeight:500}}>Atrás</span>
-        </button>
-      )}
-      {/* Title centered */}
-      <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:onBack&&action?'center':onBack||action?'flex-start':'flex-start',minWidth:0}}>
+      {/* Title */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:action?'flex-start':'flex-start',minWidth:0}}>
         <h2 style={{margin:0,color:T.text,fontSize:isMobile?18:20,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>{title}</h2>
       </div>
       {/* Action */}
