@@ -78,9 +78,9 @@ const Areas = ({data,isMobile,onNavigate}) => {
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
             {section.items.map(mod=>(
               <button key={mod.id} onClick={()=>onNavigate&&onNavigate(mod.id)}
-                style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8,padding:'16px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,cursor:'pointer',fontFamily:'inherit',minHeight:72}}>
-                <span style={{fontSize:26,lineHeight:1}}>{mod.emoji}</span>
-                <span style={{fontSize:11,fontWeight:500,color:T.text,textAlign:'center',lineHeight:1.3,wordBreak:'break-word'}}>{mod.name}</span>
+                style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6,padding:'14px 6px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,cursor:'pointer',fontFamily:'inherit',minHeight:78}}>
+                <span style={{fontSize:24,lineHeight:1}}>{mod.emoji}</span>
+                <span style={{fontSize:mod.name.length>10?10:11,fontWeight:500,color:T.text,textAlign:'center',lineHeight:1.3,overflowWrap:'break-word',wordBreak:'break-word',width:'100%',padding:'0 2px'}}>{mod.name}</span>
               </button>
             ))}
           </div>
