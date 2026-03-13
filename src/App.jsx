@@ -494,7 +494,7 @@ function App() {
       {/* ── Psicke persistent input bar (always above bottom nav) ── */}
       {isMobile && !showWelcome && !psickeOpen && (
         <PsickeBar
-          onOpen={() => { setPsickeOpen(true); setPsickeExpanded(false); askNotifPermission(); }}
+          onOpen={() => { setPsickeOpen(true); setPsickeExpanded(false); }}
           hasKey={hasKey}
           activeModule={view}
         />
