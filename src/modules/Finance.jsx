@@ -161,10 +161,10 @@ const Finance = ({data,setData,isMobile,onBack}) => {
       )}
 
       {/* Tabs */}
-      <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto',paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
         {[{id:'movimientos',label:'📋 Movimientos'},{id:'graficos',label:'📊 Gráficos'},{id:'presupuesto',label:'📌 Presupuesto'},{id:'ahorro',label:'🎯 Ahorro'}].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)}
-            style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${tab===t.id?T.accent:T.border}`,background:tab===t.id?`${T.accent}18`:'transparent',color:tab===t.id?T.accent:T.muted,cursor:'pointer',fontSize:12,fontWeight:tab===t.id?600:400,fontFamily:'inherit',whiteSpace:'nowrap'}}>
+            style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${tab===t.id?T.accent:T.border}`,background:tab===t.id?`${T.accent}18`:'transparent',color:tab===t.id?T.accent:T.muted,cursor:'pointer',fontSize:12,fontWeight:tab===t.id?600:400,fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0}}>
             {t.label}
           </button>
         ))}
@@ -173,14 +173,14 @@ const Finance = ({data,setData,isMobile,onBack}) => {
       {/* ── MOVIMIENTOS ── */}
       {tab==='movimientos'&&(
         <div>
-          <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
+          <div style={{display:'flex',gap:8,marginBottom:14,overflowX:'auto',paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none',alignItems:'center'}}>
             <select value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}
               style={{background:T.bg,border:`1px solid ${T.border}`,color:T.text,padding:'6px 12px',borderRadius:10,fontSize:13,outline:'none',cursor:'pointer'}}>
               {months.length===0?<option value={today().slice(0,7)}>{monthLabel(today().slice(0,7))}</option>:months.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}
             </select>
             {['all','ingreso','egreso'].map(f=>(
               <button key={f} onClick={()=>setFilter(f)}
-                style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${filter===f?(f==='egreso'?T.red:f==='ingreso'?T.green:T.accent):T.border}`,background:filter===f?(f==='egreso'?`${T.red}18`:f==='ingreso'?`${T.green}18`:`${T.accent}18`):'transparent',color:filter===f?(f==='egreso'?T.red:f==='ingreso'?T.green:T.accent):T.muted,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
+                style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${filter===f?(f==='egreso'?T.red:f==='ingreso'?T.green:T.accent):T.border}`,background:filter===f?(f==='egreso'?`${T.red}18`:f==='ingreso'?`${T.green}18`:`${T.accent}18`):'transparent',color:filter===f?(f==='egreso'?T.red:f==='ingreso'?T.green:T.accent):T.muted,cursor:'pointer',fontSize:12,fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0}}>
                 {f==='all'?'Todos':f==='ingreso'?'Ingresos':'Egresos'}
               </button>
             ))}
